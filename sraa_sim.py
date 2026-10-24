@@ -1,9 +1,9 @@
 # -*- coding: utf-8 -*-
 """
-Simulador didático do Sistema Renina-Angiotensina-Aldosterona (SRAA) — revisão v6
+Simulador didático do Sistema Renina-Angiotensina-Aldosterona (SRAA) — revisão v7
 
 Execução:
-    streamlit run sraa_simulador_v3.py
+    streamlit run sraa_sim.py
 
 IMPORTANTE:
 - Este é um modelo didático de índices relativos, não um simulador clínico validado.
@@ -16,11 +16,10 @@ IMPORTANTE:
 import json
 import numpy as np
 import streamlit as st
-import streamlit.components.v1 as components
 from scipy.integrate import solve_ivp
 from scipy.optimize import least_squares
 
-st.set_page_config(page_title="Simulador didático do SRAA", layout="wide")
+st.set_page_config(page_title="Simulador didático do SRAA v7", layout="wide")
 
 # =====================================================================
 # 1. PARÂMETROS E CONVENÇÕES
@@ -47,6 +46,13 @@ PARAMS = {
     # Eficácia máxima didática do BRA: 19/21 corresponde a ~90,5% de
     # redução da ocupação relativa quando Ang II = Kd = 1.
     "arb_max_block": 19.0 / 21.0,
+
+    # Intensidades máximas didáticas dos fármacos (não são potências clínicas).
+    "max_dri_renin_inhibition": 0.90,
+    "max_ace_conversion_inhibition": 0.85,
+    "max_ace_bk_degradation_inhibition": 0.90,
+    "bk_residual_clearance_fraction": 0.25,
+    "bk_ace_sensitive_clearance_fraction": 0.75,
 
     # Ganhos adimensionais: selecionados para comportamento qualitativo estável
     "g_ren_press": 2.0,
@@ -202,11 +208,11 @@ def model_rhs(t, y, drugs, p=PARAMS):
     feedback_at1 = clamp(feedback_at1, 0.30, 3.00)
 
     renin_drive = clamp(pressure_drive * sympathetic_drive * tgf_signal * feedback_at1, 0.10, 5.00)
-    renin_inhibition = 1.0 - 0.90 * drugs["dri"]
+    renin_inhibition = 1.0 - p["max_dri_renin_inhibition"] * drugs["dri"]
     renin_target = clamp(renin_drive * renin_inhibition, 0.05, 5.00)
 
     # A cascata é normalizada: sem fármacos, R=A1=A2=1 é equilíbrio.
-    ace_conversion = 1.0 - 0.85 * drugs["ace"]  # conversão residual por vias não-ACE
+    ace_conversion = 1.0 - p["max_ace_conversion_inhibition"] * drugs["ace"]  # conversão residual por vias não-ACE
     a1_target = R
     a2_target = ace_conversion * A1
 
@@ -221,7 +227,9 @@ def model_rhs(t, y, drugs, p=PARAMS):
     )
 
     # IECA reduz uma das vias de degradação de bradicinina; resta depuração residual.
-    bk_clearance = 0.25 + 0.75 * (1.0 - 0.90 * drugs["ace"])
+    bk_clearance = p["bk_residual_clearance_fraction"] + p["bk_ace_sensitive_clearance_fraction"] * (
+        1.0 - p["max_ace_bk_degradation_inhibition"] * drugs["ace"]
+    )
     bk_target = 1.0 / bk_clearance
 
     # Índice de retenção corporal de Na+: favorecido por baixa PAM/aldosterona,
@@ -310,7 +318,7 @@ def make_time_grid(t_end):
 
 
 @st.cache_data(show_spinner=False, max_entries=32)
-def simulate(drop=0.20, t_end=60.0, is_chronic=False, drugs=None):
+def simulate(drop=0.20, t_end=60.0, is_chronic=False, drugs=None, params=None):
     """Simula um desafio hemodinâmico reversível por alteração inicial do volume relativo.
 
     O cenário farmacológico já está presente antes de t=0; por isso, o equilíbrio
@@ -319,7 +327,9 @@ def simulate(drop=0.20, t_end=60.0, is_chronic=False, drugs=None):
     multiplicador externo permanente de pressão: os mecanismos de feedback podem
     compensar a perturbação. Isso é um desafio didático, não simulação de hemorragia real.
     """
-    p = PARAMS.copy()
+    # params é argumento explícito da função cacheada: alterações nos
+    # parâmetros invalidam corretamente a chave de cache.
+    p = dict(PARAMS if params is None else params)
     drop = float(np.clip(drop, 0.0, 0.40))
     if drugs is None:
         drugs = {"ace": 0.0, "arb": 0.0, "dri": 0.0}
@@ -458,7 +468,7 @@ def simulate(drop=0.20, t_end=60.0, is_chronic=False, drugs=None):
 # =====================================================================
 # 2. INTERFACE STREAMLIT
 # =====================================================================
-st.title("🫘 Simulador didático do SRAA")
+st.title("🫘 Simulador didático do SRAA — v7")
 st.caption(
     "Modelo qualitativo de hemodinâmica, cascata hormonal, feedback e efeitos farmacológicos. "
     "Não se destina a diagnóstico ou decisão terapêutica."
@@ -501,7 +511,7 @@ with st.sidebar:
 
 drugs = {"ace": float(ace), "arb": float(arb), "dri": float(dri)}
 try:
-    data = simulate(drop=queda / 100.0, t_end=t_end, is_chronic=is_chronic, drugs=drugs)
+    data = simulate(drop=queda / 100.0, t_end=t_end, is_chronic=is_chronic, drugs=drugs, params=PARAMS)
 except Exception as exc:
     st.error(f"Não foi possível concluir a simulação: {exc}")
     st.stop()
@@ -575,11 +585,11 @@ button.pri:hover{background:#185a95;}
     <line class="flow" id="f_ren" x1="180" y1="72" x2="240" y2="72" stroke="#7b52ab" marker-end="url(#flowArrow)"/>
     <line class="flow" id="f_a1" x1="380" y1="72" x2="440" y2="72" stroke="#2a9d8f" marker-end="url(#flowArrow)"/>
     <line class="flow" id="f_a2" x1="580" y1="72" x2="640" y2="72" stroke="#e76f51" marker-end="url(#flowArrow)"/>
-    <line class="flow" id="f_ald" x1="755" y1="115" x2="850" y2="232" stroke="#1d6fb8" marker-end="url(#flowArrow)"/>
-    <line class="flow" id="f_at1" x1="495" y1="116" x2="660" y2="232" stroke="#e76f51" marker-end="url(#flowArrow)"/>
-    <line class="flow" id="f_at2" x1="550" y1="116" x2="760" y2="232" stroke="#f39c12" marker-end="url(#flowArrow)"/>
-    <line class="flow" id="f_bk" x1="580" y1="185" x2="614" y2="278" stroke="#9b59b6" marker-end="url(#flowArrow)"/>
-    <line class="flow" id="f_adh" x1="880" y1="116" x2="920" y2="232" stroke="#2ecc71" marker-end="url(#flowArrow)"/>
+    <line class="flow" id="f_ald" x1="755" y1="115" x2="850" y2="239" stroke="#1d6fb8" marker-end="url(#flowArrow)"/>
+    <polyline class="flow" id="f_at1" points="570,116 600,130 610,190 660,239" stroke="#e76f51" marker-end="url(#flowArrow)"/>
+    <line class="flow" id="f_at2" x1="535" y1="116" x2="760" y2="239" stroke="#f39c12" marker-end="url(#flowArrow)"/>
+    <line class="flow" id="f_bk" x1="580" y1="185" x2="619" y2="278" stroke="#9b59b6" marker-end="url(#flowArrow)"/>
+    <line class="flow" id="f_adh" x1="880" y1="116" x2="920" y2="239" stroke="#2ecc71" marker-end="url(#flowArrow)"/>
   </g>
   <g id="bxR"><rect class="bg" x="20" y="28" width="160" height="88" rx="14" fill="#f7f9fc"/>
     <text class="ttl" x="100" y="56">Rim</text><text class="sub" x="100" y="73">atividade da renina</text>
@@ -722,10 +732,11 @@ function drawChart(ch,t){
   ch.config.series.forEach(s=>{const py=s.axis==='right'?ch.pyRight:ch.pyLeft;const y=py(sample(s.data,t));
     c.beginPath();c.arc(x,y,4,0,Math.PI*2);c.fillStyle=s.color;c.fill();c.strokeStyle='#fff';c.lineWidth=1.5;c.stroke();});
 }
-function deviationScale(arr,v,baseline){
-  const maxDev=Math.max(...arr.map(x=>Math.abs(x-baseline)));
-  if(maxDev<1e-4)return 0.0;
-  return clamp(Math.abs(v-baseline)/maxDev,0,1);
+function deviationScale(v,baseline){
+  // Escala fixa entre cenários: 50% de mudança relativa ao basal satura em 1.
+  // Assim, uma perturbação pequena não vira automaticamente intensidade máxima.
+  const ref=Math.max(Math.abs(baseline),0.1);
+  return clamp(Math.abs(v-baseline)/(0.5*ref),0,1);
 }
 function h2r(h){return [parseInt(h.slice(1,3),16),parseInt(h.slice(3,5),16),parseInt(h.slice(5,7),16)];}
 function mix(a,b,f){const A=h2r(a),B=h2r(b);return 'rgb('+Math.round(lerp(A[0],B[0],f))+','+Math.round(lerp(A[1],B[1],f))+','+Math.round(lerp(A[2],B[2],f))+')';}
@@ -742,14 +753,14 @@ function render(dt){
   let timeStr=IS_CHRONIC?(Math.max(simT,0)/1440).toFixed(2)+' dias':Math.max(simT,0).toFixed(1)+' min';
   if(simT<0)timeStr='pré-perturbação';
   document.getElementById('clock').textContent='t = '+timeStr;
-  setBox('bxR',deviationScale(RR,r,BASE.R),'#ece4f7','#7b52ab');
-  setBox('bxF',deviationScale(A1,a1,BASE.A1),'#dff3f0','#2a9d8f');
-  setBox('bxP',deviationScale(A2,a2,BASE.A2),'#fbe3dc','#e76f51');
-  setBox('bxA',deviationScale(ALD,al,BASE.Ald),'#dce9f8','#1d6fb8');
-  setBox('bxH',deviationScale(ADH,adh,BASE.ADH),'#e0f5e6','#2ecc71');
-  setBox('bxK',deviationScale(BK,bk,BASE.BK),'#f4e6f7','#9b59b6');
-  setBox('bxV',Math.max(deviationScale(AT1,at1,BASE_OUT.AT1),deviationScale(AT2,at2,BASE_OUT.AT2)),'#fbe3dc','#e76f51');
-  setBox('bxT',Math.max(deviationScale(NA,na,BASE.Na_body),deviationScale(K,k,BASE.K_plasma)),'#e6eefb','#1d6fb8');
+  setBox('bxR',deviationScale(r,BASE.R),'#ece4f7','#7b52ab');
+  setBox('bxF',deviationScale(a1,BASE.A1),'#dff3f0','#2a9d8f');
+  setBox('bxP',deviationScale(a2,BASE.A2),'#fbe3dc','#e76f51');
+  setBox('bxA',deviationScale(al,BASE.Ald),'#dce9f8','#1d6fb8');
+  setBox('bxH',deviationScale(adh,BASE.ADH),'#e0f5e6','#2ecc71');
+  setBox('bxK',deviationScale(bk,BASE.BK),'#f4e6f7','#9b59b6');
+  setBox('bxV',Math.max(deviationScale(at1,BASE_OUT.AT1),deviationScale(at2,BASE_OUT.AT2)),'#fbe3dc','#e76f51');
+  setBox('bxT',Math.max(deviationScale(na,BASE.Na_body),deviationScale(k,BASE.K_plasma)),'#e6eefb','#1d6fb8');
   document.getElementById('vR').textContent='renina '+r.toFixed(2);
   document.getElementById('vA1').textContent='Ang I '+a1.toFixed(2);
   document.getElementById('vA2').textContent='Ang II '+a2.toFixed(2);
@@ -760,8 +771,8 @@ function render(dt){
   document.getElementById('vBK').textContent='BK '+bk.toFixed(2);
   document.getElementById('vNa').textContent='Na '+na.toFixed(2);
   document.getElementById('vK').textContent='K '+k.toFixed(2);
-  const arrows=[['f_ren',r,RR,BASE.R],['f_a1',a1,A1,BASE.A1],['f_a2',a2,A2,BASE.A2],['f_ald',al,ALD,BASE.Ald],['f_at1',at1,AT1,BASE_OUT.AT1],['f_at2',at2,AT2,BASE_OUT.AT2],['f_bk',bk,BK,BASE.BK],['f_adh',adh,ADH,BASE.ADH]];
-  arrows.forEach(([id,v,arr,b0])=>{const n=deviationScale(arr,v,b0);off[id]-=(5+75*n)*dt;const el=document.getElementById(id);el.setAttribute('stroke-dashoffset',off[id]);el.setAttribute('opacity',0.15+0.85*n);});
+  const arrows=[['f_ren',r,BASE.R],['f_a1',a1,BASE.A1],['f_a2',a2,BASE.A2],['f_ald',al,BASE.Ald],['f_at1',at1,BASE_OUT.AT1],['f_at2',at2,BASE_OUT.AT2],['f_bk',bk,BASE.BK],['f_adh',adh,BASE.ADH]];
+  arrows.forEach(([id,v,b0])=>{const n=deviationScale(v,b0);off[id]-=(5+75*n)*dt;const el=document.getElementById(id);el.setAttribute('stroke-dashoffset',off[id]);el.setAttribute('opacity',0.15+0.85*n);});
   // Lúmen: AT1 contrai; AT2 dilata. Altura basal é exatamente 34 px.
   const h=clamp(34-8*(at1-1)+4*(at2-1),12,50);
   const lum=document.getElementById('lumen');lum.setAttribute('height',h);lum.setAttribute('y',280+(34-h)/2);
@@ -769,16 +780,16 @@ function render(dt){
   drawChart(ch1,simT);drawChart(ch2,simT);drawChart(ch3,simT);drawChart(ch4,simT);drawChart(ch5,simT);
   // Avisos deliberadamente rotulados como índices didáticos, não diagnósticos.
   if(DRUGS.ace>0.05 && bk>1.50 && !coughShown && simT>0){document.getElementById('alertCough').style.display='block';coughShown=true;}
-  if(k>1.15 && !kShown && simT>0){document.getElementById('alertK').style.display='block';kShown=true;}
+  if(HAS_DIST && k>1.15 && k > BASE.K_plasma + 0.10 && !kShown && simT>0){document.getElementById('alertK').style.display='block';kShown=true;}
   const status=document.getElementById('status');
   if(simT<0)status.textContent='Regime basal antes da perturbação';
-  else if(pam<85)status.textContent='PAM baixa no modelo; compensações em curso';
-  else if(k>1.15)status.textContent='Índice relativo de K⁺ elevado';
+  else if(!HAS_DIST)status.textContent='Regime estacionário (sem perturbação)';
+  else if(pam < BASE_OUT.PAM - 5.0)status.textContent='PAM caiu mais de 5 mmHg em relação ao basal do cenário; compensações em curso';
+  else if(k>1.15 && k > BASE.K_plasma + 0.10)status.textContent='Índice relativo de K⁺ elevado em relação ao basal do cenário';
   else if(DRUGS.ace>0.05 && bk>1.50)status.textContent='IECA: bradicinina elevada no modelo';
   else if(DRUGS.arb>0.05)status.textContent='BRA: sinalização AT1 reduzida no modelo';
   else if(DRUGS.ace>0.05)status.textContent='IECA: conversão Ang I → Ang II reduzida';
   else if(DRUGS.dri>0.05)status.textContent='Inibidor da renina ativo no modelo';
-  else if(!HAS_DIST)status.textContent='Regime estacionário (sem perturbação)';
   else status.textContent='Resposta do modelo à perturbação';
 }
 function loop(ts){
@@ -796,7 +807,7 @@ requestAnimationFrame(loop);
 """
 
 html = TEMPLATE.replace("__DATA__", payload)
-components.html(html, height=1470, scrolling=True)
+st.iframe(html, width="stretch", height=1470, alt="Diagrama e gráficos animados do simulador didático do SRAA")
 
 # =====================================================================
 # 4. DIAGNÓSTICOS MATEMÁTICOS E LIMITAÇÕES
@@ -815,5 +826,6 @@ st.markdown(
     "- Os índices de renina, angiotensinas, receptores, aldosterona, ADH, bradicinina, sódio, potássio e volume são relativos; não representam concentrações clínicas.\n"
     "- A perturbação é aplicada uma vez como redução inicial de volume relativo; o sistema pode compensá-la ao longo do tempo. Isso não equivale a uma hemorragia ou choque clínico real.\n- Na fase crônica, os balanços de sódio, potássio e volume usam constantes de tempo lentas, definidas para fins didáticos.\n"
     "- A TFG é uma estimativa fenomenológica simples. O modelo não inclui a mecânica completa do néfron, o transporte segmentar, a osmolaridade plasmática, a farmacocinética nem variabilidade individual.\n"
-    "- Os avisos são indicadores pedagógicos e não devem ser usados para diagnosticar ou orientar tratamentos."
+    "- Os avisos são indicadores pedagógicos e não devem ser usados para diagnosticar ou orientar tratamentos.\n"
+    "- Esta versão utiliza st.iframe, disponível a partir do Streamlit 1.56; instale as dependências de requirements_sraa.txt."
 )
