@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-Simulador didático do Sistema Renina-Angiotensina-Aldosterona (SRAA)
+Simulador didático do Sistema Renina-Angiotensina-Aldosterona (SRAA) — revisão v5
 
 Execução:
     streamlit run sraa_sim_corrigido.py
@@ -28,7 +28,6 @@ st.set_page_config(page_title="Simulador didático do SRAA", layout="wide")
 PAM0 = 90.0
 GFR0 = 112.0  # referência didática da TFG estimada, em mL/min/1,73 m²
 T_PRE = 2.0   # minutos exibidos antes do início da perturbação
-DISTURBANCE_TAU = 0.20  # min; subida suave da perturbação após t = 0
 
 # As taxas são por minuto. Para variáveis dinâmicas de primeira ordem,
 # k = ln(2)/t½. As escalas são ilustrativas; não representam uma calibração clínica.
@@ -45,7 +44,9 @@ PARAMS = {
     # Ocupação normalizada de receptores
     "Kd_AT1": 1.0,
     "Kd_AT2": 2.0,
-    "arb_kd_multiplier": 19.0,
+    # Eficácia máxima didática do BRA: 19/21 corresponde a ~90,5% de
+    # redução da ocupação relativa quando Ang II = Kd = 1.
+    "arb_max_block": 19.0 / 21.0,
 
     # Ganhos adimensionais: selecionados para comportamento qualitativo estável
     "g_ren_press": 2.0,
@@ -59,12 +60,12 @@ PARAMS = {
 
     # Hemodinâmica. São ganhos didáticos, não parâmetros clínicos calibrados.
     "g_pam_vol": 1.2,
-    "g_pam_at1": 0.28,
+    "g_pam_at1": 0.12,
     "g_pam_at2": 0.08,
     "g_pam_bk": 0.06,
     "g_pam_symp": 0.08,
     "g_ra_pressure": 0.75,
-    "g_re_at1": 0.30,
+    "g_re_at1": 0.65,
 
     # Balanços lentos: tempos característicos em horas, convertidos para minutos
     "k_na": 1.0 / (12.0 * 60.0),       # ~12 h
@@ -74,8 +75,8 @@ PARAMS = {
     "g_na_ald": 0.25,
     "g_na_gfr": 0.30,
     "g_na_vol": 0.80,
-    "g_k_ald": 0.70,
-    "g_k_gfr": 0.45,
+    "g_k_ald": 0.25,
+    "g_k_gfr": 0.15,
     "g_vol_na": 0.45,
     "g_vol_adh": 0.12,
 }
@@ -89,22 +90,20 @@ def clamp(value, low, high):
     return float(np.clip(value, low, high))
 
 
-def disturbance_factor(t, drop):
-    """Fator de perturbação: igual a 1 antes de t=0 e cai suavemente depois."""
-    if drop <= 0.0 or t < 0.0:
-        return 1.0
-    progress = 1.0 - np.exp(-t / DISTURBANCE_TAU)
-    return 1.0 - drop * progress
-
-
 def receptor_effects(a2, drugs, p=PARAMS):
-    """Atividades efetivas dos receptores, normalizadas para 1 no basal sem fármacos.
+    """Atividades efetivas relativas de AT1 e AT2.
 
-    O BRA é representado didaticamente como aumento da Kd aparente de AT1.
-    Isso é uma aproximação simples de antagonismo competitivo, não uma PK/PD completa.
+    O slider do BRA representa intensidade de bloqueio funcional. Para Ang II = 1
+    e Kd_AT1 = 1, cada incremento do slider produz uma redução proporcional da
+    ocupação relativa no ponto de referência. Isso é uma simplificação didática
+    de antagonismo competitivo, não uma curva clínica de dose-resposta.
     """
     a2 = max(float(a2), 1e-8)
-    kd_at1_eff = p["Kd_AT1"] * (1.0 + p["arb_kd_multiplier"] * drugs["arb"])
+    arb_level = clamp(drugs.get("arb", 0.0), 0.0, 1.0)
+    block_fraction = p["arb_max_block"] * arb_level
+    # Derivado para que occ_AT1/occ_AT1_basal = 1 - block_fraction em A2=Kd=1.
+    kd_multiplier = (1.0 + block_fraction) / (1.0 - block_fraction)
+    kd_at1_eff = p["Kd_AT1"] * kd_multiplier
 
     occ_at1 = a2 / (kd_at1_eff + a2)
     occ_at2 = a2 / (p["Kd_AT2"] + a2)
@@ -117,33 +116,40 @@ def receptor_effects(a2, drugs, p=PARAMS):
 
 
 def hemodynamics(pam, a2, drugs, p=PARAMS):
-    """TFG didática estimada a partir da perfusão e de resistências relativas.
+    """Estimativa fenomenológica da TFG, com suporte eferente mais relevante sob baixa perfusão.
 
-    A resistência aferente diminui quando a perfusão cai (dilatação compensatória)
-    e aumenta quando a perfusão sobe. A resistência eferente depende do sinal AT1.
-    Isso é uma aproximação fenomenológica, não um modelo de néfron completo.
+    Em normoperfusão, a fórmula é calibrada para GFR0. Quando a PAM cai, a resistência
+    aferente diminui (resposta miogênica simplificada). O efeito AT1 sobre a resistência
+    eferente ganha peso conforme aumenta a hipoperfusão, permitindo ilustrar por que o
+    bloqueio do SRAA pode reduzir a TFG em situações vulneráveis. Não é um modelo completo
+    de néfron nem uma estimativa clínica validada.
     """
     eff_at1, _ = receptor_effects(a2, drugs, p)
     pressure_ratio = max(float(pam), 1.0) / PAM0
 
-    # Sinal correto da resposta miogênica simplificada: menor pressão -> menor Ra.
+    # Menor pressão -> menor resistência aferente (dilatação compensatória simplificada).
     r_aff = clamp(1.0 + p["g_ra_pressure"] * (pressure_ratio - 1.0), 0.60, 1.50)
-    r_eff = clamp(1.0 + p["g_re_at1"] * (eff_at1 - 1.0), 0.60, 1.60)
 
-    # Normalizado para GFR0 quando PAM, Ra e Re estão em seus valores basais.
+    # O suporte eferente mediado por AT1 importa mais quando a perfusão está reduzida.
+    hypoperfusion = clamp((1.0 - pressure_ratio) / 0.25, 0.0, 1.0)
+    r_eff = clamp(
+        1.0 + p["g_re_at1"] * hypoperfusion * (eff_at1 - 1.0),
+        0.45,
+        1.60,
+    )
+
+    # Basal sem fármacos: PAM=90, Ra=Re=1 -> TFG=GFR0.
     gfr = GFR0 * pressure_ratio * (2.0 * r_eff / (r_aff + r_eff))
     gfr = clamp(gfr, 5.0, 220.0)
 
-    # Proxy de entrega tubular para o TGF. NÃO é conteúdo corporal de sódio.
-    # O modelo não representa transporte segmentar nem NaCl medido na mácula densa.
+    # Proxy de entrega tubular para TGF. Não equivale a NaCl medido na mácula densa.
     distal_delivery_ratio = clamp(gfr / GFR0, 0.20, 2.50)
     return gfr, distal_delivery_ratio, r_aff, r_eff
 
 
-def model_outputs(t, y, drop, drugs, p=PARAMS):
-    """Calcula variáveis algébricas: PAM, TFG, receptor e sinais de feedback."""
+def model_outputs(t, y, drugs, p=PARAMS):
+    """Calcula PAM, TFG, receptores e variáveis algébricas associadas."""
     R, A1, A2, Ald, ADH, BK, Na_body, K_plasma, Vol, S = [max(float(v), 1e-6) for v in y]
-    D = disturbance_factor(t, drop)
     eff_at1, eff_at2 = receptor_effects(A2, drugs, p)
 
     # Fator vascular relativo. O basal (AT1=AT2=BK=S=Vol=1) é exatamente 1.
@@ -155,14 +161,13 @@ def model_outputs(t, y, drop, drugs, p=PARAMS):
         + p["g_pam_symp"] * (S - 1.0)
     )
     vascular_factor = clamp(vascular_factor, 0.35, 1.80)
-    pam = PAM0 * (Vol ** p["g_pam_vol"]) * vascular_factor * D
+    pam = PAM0 * (Vol ** p["g_pam_vol"]) * vascular_factor
     pam = clamp(pam, 5.0, 220.0)
 
     gfr, distal_delivery_ratio, r_aff, r_eff = hemodynamics(pam, A2, drugs, p)
     return {
         "PAM": pam,
         "GFR": gfr,
-        "D": D,
         "AT1": eff_at1,
         "AT2": eff_at2,
         "distal_delivery_ratio": distal_delivery_ratio,
@@ -171,14 +176,14 @@ def model_outputs(t, y, drop, drugs, p=PARAMS):
     }
 
 
-def model_rhs(t, y, drop, drugs, p=PARAMS):
+def model_rhs(t, y, drugs, p=PARAMS):
     """Sistema de EDOs do modelo didático.
 
     Todos os índices têm estado basal 1 sem fármacos/perturbação. O uso de
     (alvo - estado) evita deriva espontânea quando alvo=1.
     """
     R, A1, A2, Ald, ADH, BK, Na_body, K_plasma, Vol, S = [max(float(v), 1e-6) for v in y]
-    out = model_outputs(t, y, drop, drugs, p)
+    out = model_outputs(t, y, drugs, p)
     pam = out["PAM"]
     gfr = out["GFR"]
     eff_at1 = out["AT1"]
@@ -274,7 +279,7 @@ def find_equilibrium(drugs, p=PARAMS):
 
     def residual(log_y):
         y = np.exp(log_y)
-        return model_rhs(0.0, y, 0.0, drugs, p) / rate_scale
+        return model_rhs(0.0, y, drugs, p) / rate_scale
 
     lower = np.log(np.full(10, 0.05))
     upper = np.log(np.full(10, 5.0))
@@ -294,28 +299,55 @@ def find_equilibrium(drugs, p=PARAMS):
 
 
 def make_time_grid(t_end):
-    """Cria amostragem densa no início para preservar os processos rápidos e lenta depois."""
+    """Amostragem pós-perturbação em minutos; prioriza a resposta rápida no começo."""
+    t_end = float(t_end)
     if t_end <= 180.0:
-        early = np.linspace(-T_PRE, t_end, 2400)
-        return early
+        return np.linspace(0.0, t_end, 2400)
     early_end = min(180.0, t_end)
-    early = np.linspace(-T_PRE, early_end, 2200)
+    early = np.linspace(0.0, early_end, 2200)
     late = np.linspace(early_end, t_end, 2800)
     return np.unique(np.concatenate([early, late]))
 
 
+@st.cache_data(show_spinner=False, max_entries=32)
 def simulate(drop=0.20, t_end=60.0, is_chronic=False, drugs=None):
+    """Simula um desafio hemodinâmico reversível por alteração inicial do volume relativo.
+
+    O cenário farmacológico já está presente antes de t=0; por isso, o equilíbrio
+    é recalculado com os fármacos ativos. No instante t=0, reduz-se Vol o suficiente
+    para produzir a queda percentual inicial escolhida na PAM. Depois disso, não há
+    multiplicador externo permanente de pressão: os mecanismos de feedback podem
+    compensar a perturbação. Isso é um desafio didático, não simulação de hemorragia real.
+    """
+    p = PARAMS.copy()
+    drop = float(np.clip(drop, 0.0, 0.40))
     if drugs is None:
         drugs = {"ace": 0.0, "arb": 0.0, "dri": 0.0}
-    p = PARAMS.copy()
+    drugs = {
+        "ace": float(np.clip(drugs.get("ace", 0.0), 0.0, 1.0)),
+        "arb": float(np.clip(drugs.get("arb", 0.0), 0.0, 1.0)),
+        "dri": float(np.clip(drugs.get("dri", 0.0), 0.0, 1.0)),
+    }
+
     y_eq, eq_ok, eq_residual, eq_message = find_equilibrium(drugs, p)
 
-    t_eval = make_time_grid(float(t_end))
+    # Período pré-evento estacionário, para visualizar um verdadeiro basal.
+    t_pre = np.linspace(-T_PRE, -1e-4, 80)
+    y_pre = np.repeat(y_eq[:, None], len(t_pre), axis=1)
+
+    # O choque é imposto uma única vez ao estado de volume efetivo. Como PAM ~ Vol^g,
+    # essa transformação produz a queda inicial solicitada mantendo os outros estados.
+    y0_post = y_eq.copy()
+    if drop > 0.0:
+        i_vol = STATE_INDEX["Vol"]
+        y0_post[i_vol] *= (1.0 - drop) ** (1.0 / p["g_pam_vol"])
+
+    t_post = make_time_grid(float(t_end))
     sol = solve_ivp(
-        fun=lambda t, y: model_rhs(t, y, drop, drugs, p),
-        t_span=(-T_PRE, float(t_end)),
-        y0=y_eq,
-        t_eval=t_eval,
+        fun=lambda t, y: model_rhs(t, y, drugs, p),
+        t_span=(0.0, float(t_end)),
+        y0=y0_post,
+        t_eval=t_post,
         method="LSODA",
         rtol=1e-7,
         atol=1e-9,
@@ -324,29 +356,30 @@ def simulate(drop=0.20, t_end=60.0, is_chronic=False, drugs=None):
     if not sol.success:
         raise RuntimeError(f"A integração falhou: {sol.message}")
 
-    R, A1, A2, Ald, ADH, BK, Na_body, K_plasma, Vol, S = sol.y
-    n = len(sol.t)
+    t_all = np.concatenate([t_pre, sol.t])
+    y_all = np.concatenate([y_pre, sol.y], axis=1)
+    R, A1, A2, Ald, ADH, BK, Na_body, K_plasma, Vol, S = y_all
+    n = len(t_all)
     pam = np.empty(n)
     gfr = np.empty(n)
     at1 = np.empty(n)
     at2 = np.empty(n)
     ra = np.empty(n)
     re = np.empty(n)
-    disturbance = np.empty(n)
 
-    for i, ti in enumerate(sol.t):
-        out = model_outputs(ti, sol.y[:, i], drop, drugs, p)
+    for i, ti in enumerate(t_all):
+        out = model_outputs(ti, y_all[:, i], drugs, p)
         pam[i] = out["PAM"]
         gfr[i] = out["GFR"]
         at1[i] = out["AT1"]
         at2[i] = out["AT2"]
         ra[i] = out["R_aff"]
         re[i] = out["R_eff"]
-        disturbance[i] = out["D"]
 
+    baseline_outputs = model_outputs(0.0, y_eq, drugs, p)
     round_list = lambda arr: np.round(np.asarray(arr, dtype=float), 6).tolist()
     result = {
-        "t": round_list(sol.t),
+        "t": round_list(t_all),
         "PAM": round_list(pam),
         "GFR": round_list(gfr),
         "R": round_list(R),
@@ -363,15 +396,15 @@ def simulate(drop=0.20, t_end=60.0, is_chronic=False, drugs=None):
         "S": round_list(S),
         "R_aff": round_list(ra),
         "R_eff": round_list(re),
-        "D": round_list(disturbance),
         "t_end": float(t_end),
         "is_chronic": bool(is_chronic),
-        "drop": float(drop),
+        "drop": drop,
         "drugs": drugs,
         "equilibrium_ok": eq_ok,
         "equilibrium_residual": eq_residual,
         "equilibrium_message": str(eq_message),
         "baseline": {key: float(val) for key, val in zip(STATE_NAMES, y_eq)},
+        "baseline_outputs": {key: float(val) for key, val in baseline_outputs.items()},
     }
     return result
 
@@ -397,9 +430,10 @@ with st.sidebar:
 
     if teste_eq:
         queda = 0
-        st.info("O sistema deve permanecer estacionário, com PAM basal de 90 mmHg.")
+        st.info("Sem perturbação e sem fármacos, o sistema deve permanecer estacionário em PAM = 90 mmHg e índices = 1.")
     else:
-        queda = st.slider("Queda sustentada aplicada à pressão (%)", 5, 40, 20, 1)
+        queda = st.slider("Queda inicial da PAM equivalente (%)", 5, 40, 20, 1)
+        st.caption("Aplicada como uma redução inicial do volume relativo; não é um multiplicador permanente da pressão.")
 
     if is_chronic:
         dur = st.slider("Duração (dias)", 1, 7, 3, 1)
@@ -413,10 +447,11 @@ with st.sidebar:
         ace, arb, dri = 0.0, 0.0, 0.0
         st.info("Fármacos desativados no teste de equilíbrio.")
     else:
-        ace = st.slider("IECA (efeito relativo)", 0.0, 1.0, 0.0, 0.1)
-        arb = st.slider("BRA (efeito relativo)", 0.0, 1.0, 0.0, 0.1)
-        dri = st.slider("Inibidor da renina (efeito relativo)", 0.0, 1.0, 0.0, 0.1)
-        st.caption("Os efeitos escolhidos já estão ativos antes da perturbação; o basal é recalculado para esse regime.")
+        ace = st.slider("IECA — intensidade sobre a conversão via ECA", 0.0, 1.0, 0.0, 0.1)
+        arb = st.slider("BRA — intensidade do bloqueio funcional de AT1", 0.0, 1.0, 0.0, 0.1)
+        dri = st.slider("Inibidor da renina — intensidade de inibição", 0.0, 1.0, 0.0, 0.1)
+        st.caption("São intensidades didáticas, não doses. Em 0,1, a ação direta no alvo é de aproximadamente 8,5–9%; os efeitos finais na PAM/TFG podem diferir por causa dos feedbacks.")
+        st.caption("Os fármacos já estão ativos antes da perturbação; o equilíbrio é recalculado para esse regime.")
 
 drugs = {"ace": float(ace), "arb": float(arb), "dri": float(dri)}
 try:
@@ -447,8 +482,8 @@ body{margin:0;background:#fff;color:var(--ink);font-family:-apple-system,BlinkMa
 .pam{font-size:30px;font-weight:800;color:#c0392b;line-height:1;min-width:190px;}
 .pam small{display:block;font-size:10.5px;font-weight:600;color:var(--muted);letter-spacing:.07em;text-transform:uppercase;margin-top:3px;}
 .gw{flex:1;position:relative;height:16px;}
-.gauge{position:absolute;inset:0;background:#eef2f8;border-radius:8px;overflow:hidden;}
-.gauge>i{position:absolute;left:0;top:0;bottom:0;width:75%;border-radius:8px;background:linear-gradient(90deg,#e74c3c,#f1c40f,#2ecc71);}
+.gauge{position:absolute;inset:0;background:linear-gradient(90deg,#e74c3c 0%,#f1c40f 50%,#2ecc71 100%);border-radius:8px;overflow:hidden;}
+.gauge>i{position:absolute;right:0;top:0;bottom:0;width:25%;border-radius:0 8px 8px 0;background:#eef2f8;transition:width .08s linear;}
 .clock{font-variant-numeric:tabular-nums;font-size:15px;font-weight:700;color:#4a5b78;min-width:120px;text-align:right;}
 svg{display:block;width:100%;height:auto;}
 .bg{stroke:#dbe4f0;stroke-width:2;}
@@ -485,15 +520,20 @@ button.pri:hover{background:#185a95;}
   <div class="clock" id="clock">t = 0 min</div>
 </div>
 <svg id="dia" viewBox="0 0 1000 420" preserveAspectRatio="xMidYMid meet">
+  <defs>
+    <marker id="flowArrow" markerWidth="7" markerHeight="7" refX="5.5" refY="3" orient="auto" markerUnits="userSpaceOnUse">
+      <path d="M0,0 L6,3 L0,6 z" fill="#64748b"/>
+    </marker>
+  </defs>
   <g id="flows">
-    <line class="flow" id="f_ren" x1="180" y1="72" x2="240" y2="72" stroke="#7b52ab"/>
-    <line class="flow" id="f_a1" x1="380" y1="72" x2="440" y2="72" stroke="#2a9d8f"/>
-    <line class="flow" id="f_a2" x1="580" y1="72" x2="640" y2="72" stroke="#e76f51"/>
-    <line class="flow" id="f_ald" x1="780" y1="72" x2="840" y2="72" stroke="#1d6fb8"/>
-    <line class="flow" id="f_at1" x1="710" y1="110" x2="710" y2="220" stroke="#e76f51"/>
-    <line class="flow" id="f_at2" x1="760" y1="110" x2="760" y2="220" stroke="#f39c12"/>
-    <line class="flow" id="f_bk" x1="580" y1="150" x2="580" y2="220" stroke="#9b59b6"/>
-    <line class="flow" id="f_adh" x1="840" y1="110" x2="840" y2="220" stroke="#2ecc71"/>
+    <line class="flow" id="f_ren" x1="180" y1="72" x2="240" y2="72" stroke="#7b52ab" marker-end="url(#flowArrow)"/>
+    <line class="flow" id="f_a1" x1="380" y1="72" x2="440" y2="72" stroke="#2a9d8f" marker-end="url(#flowArrow)"/>
+    <line class="flow" id="f_a2" x1="580" y1="72" x2="640" y2="72" stroke="#e76f51" marker-end="url(#flowArrow)"/>
+    <line class="flow" id="f_ald" x1="755" y1="115" x2="850" y2="232" stroke="#1d6fb8" marker-end="url(#flowArrow)"/>
+    <line class="flow" id="f_at1" x1="495" y1="116" x2="660" y2="232" stroke="#e76f51" marker-end="url(#flowArrow)"/>
+    <line class="flow" id="f_at2" x1="550" y1="116" x2="760" y2="232" stroke="#f39c12" marker-end="url(#flowArrow)"/>
+    <line class="flow" id="f_bk" x1="580" y1="185" x2="614" y2="278" stroke="#9b59b6" marker-end="url(#flowArrow)"/>
+    <line class="flow" id="f_adh" x1="880" y1="116" x2="920" y2="232" stroke="#2ecc71" marker-end="url(#flowArrow)"/>
   </g>
   <g id="bxR"><rect class="bg" x="20" y="28" width="160" height="88" rx="14" fill="#f7f9fc"/>
     <text class="ttl" x="100" y="56">Rim</text><text class="sub" x="100" y="73">atividade da renina</text>
@@ -516,7 +556,8 @@ button.pri:hover{background:#185a95;}
     <text class="val" x="660" y="330" id="vAT1" fill="#e76f51">AT1 1.00</text>
     <text class="val" x="760" y="330" id="vAT2" fill="#f39c12">AT2 1.00</text></g>
   <g id="bxT"><rect class="bg" x="820" y="240" width="160" height="110" rx="14" fill="#f7f9fc"/>
-    <text class="ttl" x="900" y="265" font-size="13">Índices tubulares</text>
+    <text class="ttl" x="900" y="261" font-size="12">Balanço hidroeletrolítico</text>
+    <text class="sub" x="900" y="276">Na corporal / K⁺ plasmático</text>
     <rect x="835" y="280" width="130" height="26" rx="13" fill="#e6eefb" stroke="#c3d5ee"/>
     <g id="dots"></g>
     <text class="val" x="865" y="330" id="vNa" fill="#1d6fb8">Na 1.00</text>
@@ -527,12 +568,12 @@ button.pri:hover{background:#185a95;}
 </svg>
 <div class="charts">
   <div class="card"><h4>PAM e TFG estimada</h4><div class="hint">Eixo esquerdo: mmHg · eixo direito: mL/min/1,73 m²</div><canvas id="c1" width="600" height="260"></canvas></div>
-  <div class="card"><h4>Cascata hormonal</h4><div class="hint">Índices relativos (basal = 1)</div><canvas id="c2" width="600" height="260"></canvas></div>
+  <div class="card"><h4>Cascata hormonal</h4><div class="hint">Índices relativos (referência sem fármacos = 1)</div><canvas id="c2" width="600" height="260"></canvas></div>
 </div>
 <div class="charts">
-  <div class="card"><h4>Sinalização dos receptores</h4><div class="hint">Atividade efetiva relativa (basal = 1)</div><canvas id="c3" width="600" height="260"></canvas></div>
-  <div class="card"><h4>Volume relativo e aldosterona</h4><div class="hint">Índices relativos (basal = 1)</div><canvas id="c4" width="600" height="260"></canvas></div>
-  <div class="card"><h4>Sódio corporal e K⁺ plasmático</h4><div class="hint">Índices relativos; não são concentrações clínicas</div><canvas id="c5" width="600" height="260"></canvas></div>
+  <div class="card"><h4>Sinalização dos receptores</h4><div class="hint">Atividade efetiva relativa (referência sem fármacos = 1)</div><canvas id="c3" width="600" height="260"></canvas></div>
+  <div class="card"><h4>Volume relativo e aldosterona</h4><div class="hint">Índices relativos (referência sem fármacos = 1)</div><canvas id="c4" width="600" height="260"></canvas></div>
+  <div class="card"><h4>Sódio corporal e K⁺ plasmático</h4><div class="hint">Referência sem fármacos = 1; não são concentrações clínicas</div><canvas id="c5" width="600" height="260"></canvas></div>
 </div>
 <div class="bar">
   <button id="btnPlay" class="pri">⏸ Pausar</button><button id="btnReset">↺ Reiniciar</button>
@@ -548,6 +589,8 @@ const T=D.t, PAM=D.PAM, GFR=D.GFR, RR=D.R, A1=D.A1, A2=D.A2, AT1=D.AT1, AT2=D.AT
 const T0=T[0], T1=T[T.length-1], IS_CHRONIC=D.is_chronic;
 const HAS_DIST=D.drop>0;
 const DRUGS=D.drugs;
+const BASE=D.baseline;
+const BASE_OUT=D.baseline_outputs;
 const lerp=(a,b,f)=>a+(b-a)*f;
 function sample(arr,t){
   const n=T.length; if(t<=T[0])return arr[0]; if(t>=T[n-1])return arr[n-1];
@@ -633,10 +676,10 @@ function drawChart(ch,t){
   ch.config.series.forEach(s=>{const py=s.axis==='right'?ch.pyRight:ch.pyLeft;const y=py(sample(s.data,t));
     c.beginPath();c.arc(x,y,4,0,Math.PI*2);c.fillStyle=s.color;c.fill();c.strokeStyle='#fff';c.lineWidth=1.5;c.stroke();});
 }
-function deviationScale(arr,v){
-  const maxDev=Math.max(...arr.map(x=>Math.abs(x-1)));
-  if(maxDev<0.02)return 0.18;
-  return clamp(0.18+0.82*Math.abs(v-1)/maxDev,0.18,1);
+function deviationScale(arr,v,baseline){
+  const maxDev=Math.max(...arr.map(x=>Math.abs(x-baseline)));
+  if(maxDev<1e-4)return 0.0;
+  return clamp(Math.abs(v-baseline)/maxDev,0,1);
 }
 function h2r(h){return [parseInt(h.slice(1,3),16),parseInt(h.slice(3,5),16),parseInt(h.slice(5,7),16)];}
 function mix(a,b,f){const A=h2r(a),B=h2r(b);return 'rgb('+Math.round(lerp(A[0],B[0],f))+','+Math.round(lerp(A[1],B[1],f))+','+Math.round(lerp(A[2],B[2],f))+')';}
@@ -649,18 +692,18 @@ function render(dt){
   const pam=sample(PAM,simT),r=sample(RR,simT),a1=sample(A1,simT),a2=sample(A2,simT),at1=sample(AT1,simT),at2=sample(AT2,simT),
         al=sample(ALD,simT),adh=sample(ADH,simT),bk=sample(BK,simT),na=sample(NA,simT),k=sample(K,simT),vol=sample(V,simT);
   document.getElementById('pamv').textContent=pam.toFixed(1);
-  document.getElementById('gfill').style.width=clamp(pam/120*100,0,100)+'%';
+  document.getElementById('gfill').style.width=(100-clamp(pam/120*100,0,100))+'%';
   let timeStr=IS_CHRONIC?(Math.max(simT,0)/1440).toFixed(2)+' dias':Math.max(simT,0).toFixed(1)+' min';
   if(simT<0)timeStr='pré-perturbação';
   document.getElementById('clock').textContent='t = '+timeStr;
-  setBox('bxR',deviationScale(RR,r),'#ece4f7','#7b52ab');
-  setBox('bxF',deviationScale(A1,a1),'#dff3f0','#2a9d8f');
-  setBox('bxP',deviationScale(A2,a2),'#fbe3dc','#e76f51');
-  setBox('bxA',deviationScale(ALD,al),'#dce9f8','#1d6fb8');
-  setBox('bxH',deviationScale(ADH,adh),'#e0f5e6','#2ecc71');
-  setBox('bxK',deviationScale(BK,bk),'#f4e6f7','#9b59b6');
-  setBox('bxV',Math.max(deviationScale(AT1,at1),deviationScale(AT2,at2)),'#fbe3dc','#e76f51');
-  setBox('bxT',deviationScale(NA,na),'#e6eefb','#1d6fb8');
+  setBox('bxR',deviationScale(RR,r,BASE.R),'#ece4f7','#7b52ab');
+  setBox('bxF',deviationScale(A1,a1,BASE.A1),'#dff3f0','#2a9d8f');
+  setBox('bxP',deviationScale(A2,a2,BASE.A2),'#fbe3dc','#e76f51');
+  setBox('bxA',deviationScale(ALD,al,BASE.Ald),'#dce9f8','#1d6fb8');
+  setBox('bxH',deviationScale(ADH,adh,BASE.ADH),'#e0f5e6','#2ecc71');
+  setBox('bxK',deviationScale(BK,bk,BASE.BK),'#f4e6f7','#9b59b6');
+  setBox('bxV',Math.max(deviationScale(AT1,at1,BASE_OUT.AT1),deviationScale(AT2,at2,BASE_OUT.AT2)),'#fbe3dc','#e76f51');
+  setBox('bxT',Math.max(deviationScale(NA,na,BASE.Na_body),deviationScale(K,k,BASE.K_plasma)),'#e6eefb','#1d6fb8');
   document.getElementById('vR').textContent='renina '+r.toFixed(2);
   document.getElementById('vA1').textContent='Ang I '+a1.toFixed(2);
   document.getElementById('vA2').textContent='Ang II '+a2.toFixed(2);
@@ -671,8 +714,8 @@ function render(dt){
   document.getElementById('vBK').textContent='BK '+bk.toFixed(2);
   document.getElementById('vNa').textContent='Na '+na.toFixed(2);
   document.getElementById('vK').textContent='K '+k.toFixed(2);
-  const arrows=[['f_ren',r,RR],['f_a1',a1,A1],['f_a2',a2,A2],['f_ald',al,ALD],['f_at1',at1,AT1],['f_at2',at2,AT2],['f_bk',bk,BK],['f_adh',adh,ADH]];
-  arrows.forEach(([id,v,arr])=>{const n=deviationScale(arr,v);off[id]-=(15+100*n)*dt;const el=document.getElementById(id);el.setAttribute('stroke-dashoffset',off[id]);el.setAttribute('opacity',0.2+0.8*n);});
+  const arrows=[['f_ren',r,RR,BASE.R],['f_a1',a1,A1,BASE.A1],['f_a2',a2,A2,BASE.A2],['f_ald',al,ALD,BASE.Ald],['f_at1',at1,AT1,BASE_OUT.AT1],['f_at2',at2,AT2,BASE_OUT.AT2],['f_bk',bk,BK,BASE.BK],['f_adh',adh,ADH,BASE.ADH]];
+  arrows.forEach(([id,v,arr,b0])=>{const n=deviationScale(arr,v,b0);off[id]-=(5+75*n)*dt;const el=document.getElementById(id);el.setAttribute('stroke-dashoffset',off[id]);el.setAttribute('opacity',0.15+0.85*n);});
   // Lúmen: AT1 contrai; AT2 dilata. Altura basal é exatamente 34 px.
   const h=clamp(34-8*(at1-1)+4*(at2-1),12,50);
   const lum=document.getElementById('lumen');lum.setAttribute('height',h);lum.setAttribute('y',280+(34-h)/2);
@@ -683,10 +726,12 @@ function render(dt){
   if(k>1.15 && !kShown && simT>0){document.getElementById('alertK').style.display='block';kShown=true;}
   const status=document.getElementById('status');
   if(simT<0)status.textContent='Regime basal antes da perturbação';
+  else if(pam<85)status.textContent='PAM baixa no modelo; compensações em curso';
   else if(k>1.15)status.textContent='Índice relativo de K⁺ elevado';
+  else if(DRUGS.ace>0.05 && bk>1.50)status.textContent='IECA: bradicinina elevada no modelo';
   else if(DRUGS.arb>0.05)status.textContent='BRA: sinalização AT1 reduzida no modelo';
   else if(DRUGS.ace>0.05)status.textContent='IECA: conversão Ang I → Ang II reduzida';
-  else if(pam<85)status.textContent='PAM baixa no modelo; compensações em curso';
+  else if(DRUGS.dri>0.05)status.textContent='Inibidor da renina ativo no modelo';
   else if(!HAS_DIST)status.textContent='Regime estacionário (sem perturbação)';
   else status.textContent='Resposta do modelo à perturbação';
 }
@@ -715,14 +760,14 @@ with st.expander("Verificar o equilíbrio numérico", expanded=False):
     st.write(f"Maior resíduo normalizado: **{data['equilibrium_residual']:.3e}**")
     st.write("Estado estacionário usado antes da perturbação, já considerando os fármacos selecionados:")
     baseline_rows = [{"Variável": name, "Índice basal calculado": round(value, 4)} for name, value in data["baseline"].items()]
-    st.dataframe(baseline_rows, hide_index=True, use_container_width=True)
+    st.dataframe(baseline_rows, hide_index=True, width="stretch")
 
 st.markdown("---")
 st.markdown(
     "**Como interpretar o simulador**\n\n"
-    "- O teste de equilíbrio deve manter PAM em 90 mmHg e os índices em 1, sem deriva.\n"
+    "- O teste de equilíbrio sem fármacos deve manter PAM em 90 mmHg e os índices em 1, sem deriva.\n"
     "- Os índices de renina, angiotensinas, receptores, aldosterona, ADH, bradicinina, sódio, potássio e volume são relativos; não representam concentrações clínicas.\n"
-    "- Na fase crônica, os balanços de sódio, potássio e volume usam constantes de tempo lentas, definidas para fins didáticos.\n"
+    "- A perturbação é aplicada uma vez como redução inicial de volume relativo; o sistema pode compensá-la ao longo do tempo. Isso não equivale a uma hemorragia ou choque clínico real.\n- Na fase crônica, os balanços de sódio, potássio e volume usam constantes de tempo lentas, definidas para fins didáticos.\n"
     "- A TFG é uma estimativa fenomenológica simples. O modelo não inclui a mecânica completa do néfron, o transporte segmentar, a osmolaridade plasmática, a farmacocinética nem variabilidade individual.\n"
     "- Os avisos são indicadores pedagógicos e não devem ser usados para diagnosticar ou orientar tratamentos."
 )
