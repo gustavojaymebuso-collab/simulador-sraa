@@ -1,9 +1,9 @@
 # -*- coding: utf-8 -*-
 """
-Simulador didático do Sistema Renina-Angiotensina-Aldosterona (SRAA) — revisão v5
+Simulador didático do Sistema Renina-Angiotensina-Aldosterona (SRAA) — revisão v6
 
 Execução:
-    streamlit run sraa_sim_corrigido.py
+    streamlit run sraa_simulador_v3.py
 
 IMPORTANTE:
 - Este é um modelo didático de índices relativos, não um simulador clínico validado.
@@ -343,21 +343,67 @@ def simulate(drop=0.20, t_end=60.0, is_chronic=False, drugs=None):
         y0_post[i_vol] *= (1.0 - drop) ** (1.0 / p["g_pam_vol"])
 
     t_post = make_time_grid(float(t_end))
-    sol = solve_ivp(
-        fun=lambda t, y: model_rhs(t, y, drugs, p),
-        t_span=(0.0, float(t_end)),
-        y0=y0_post,
-        t_eval=t_post,
-        method="LSODA",
-        rtol=1e-7,
-        atol=1e-9,
-        max_step=0.5,
-    )
-    if not sol.success:
-        raise RuntimeError(f"A integração falhou: {sol.message}")
+    rhs = lambda t, y: model_rhs(t, y, drugs, p)
+    early_end = min(30.0, float(t_end))
 
-    t_all = np.concatenate([t_pre, sol.t])
-    y_all = np.concatenate([y_pre, sol.y], axis=1)
+    # Integração em dois segmentos:
+    # 1) 0–30 min: passo máximo curto para resolver os transientes rápidos;
+    # 2) após 30 min: LSODA escolhe o passo adaptativamente, sem max_step fixo.
+    # t_eval controla apenas os instantes de saída; não força o passo interno do solver.
+    if float(t_end) <= 30.0:
+        sol_early = solve_ivp(
+            fun=rhs,
+            t_span=(0.0, float(t_end)),
+            y0=y0_post,
+            t_eval=t_post,
+            method="LSODA",
+            rtol=1e-7,
+            atol=1e-9,
+            max_step=0.25,
+        )
+        if not sol_early.success:
+            raise RuntimeError(f"A integração inicial falhou: {sol_early.message}")
+        t_post_sim = sol_early.t
+        y_post_sim = sol_early.y
+    else:
+        t_eval_early = np.unique(
+            np.concatenate(([0.0], t_post[(t_post > 0.0) & (t_post < early_end)], [early_end]))
+        )
+        sol_early = solve_ivp(
+            fun=rhs,
+            t_span=(0.0, early_end),
+            y0=y0_post,
+            t_eval=t_eval_early,
+            method="LSODA",
+            rtol=1e-7,
+            atol=1e-9,
+            max_step=0.25,
+        )
+        if not sol_early.success:
+            raise RuntimeError(f"A integração inicial falhou: {sol_early.message}")
+
+        t_eval_late = np.unique(
+            np.concatenate(([early_end], t_post[t_post > early_end]))
+        )
+        sol_late = solve_ivp(
+            fun=rhs,
+            t_span=(early_end, float(t_end)),
+            y0=sol_early.y[:, -1],
+            t_eval=t_eval_late,
+            method="LSODA",
+            rtol=1e-7,
+            atol=1e-9,
+            # Intencionalmente sem max_step nesta etapa: passo adaptativo livre.
+        )
+        if not sol_late.success:
+            raise RuntimeError(f"A integração tardia falhou: {sol_late.message}")
+
+        # O instante de fronteira (early_end) está nos dois segmentos; inclui-se uma vez.
+        t_post_sim = np.concatenate([sol_early.t, sol_late.t[1:]])
+        y_post_sim = np.concatenate([sol_early.y, sol_late.y[:, 1:]], axis=1)
+
+    t_all = np.concatenate([t_pre, t_post_sim])
+    y_all = np.concatenate([y_pre, y_post_sim], axis=1)
     R, A1, A2, Ald, ADH, BK, Na_body, K_plasma, Vol, S = y_all
     n = len(t_all)
     pam = np.empty(n)
