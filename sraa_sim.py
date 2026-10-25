@@ -780,16 +780,16 @@ function render(dt){
   drawChart(ch1,simT);drawChart(ch2,simT);drawChart(ch3,simT);drawChart(ch4,simT);drawChart(ch5,simT);
   // Avisos deliberadamente rotulados como índices didáticos, não diagnósticos.
   if(DRUGS.ace>0.05 && bk>1.50 && !coughShown && simT>0){document.getElementById('alertCough').style.display='block';coughShown=true;}
-  if(HAS_DIST && k>1.15 && k > BASE.K_plasma + 0.10 && !kShown && simT>0){document.getElementById('alertK').style.display='block';kShown=true;}
+  if(k>1.15 && !kShown){document.getElementById('alertK').style.display='block';kShown=true;}
   const status=document.getElementById('status');
   if(simT<0)status.textContent='Regime basal antes da perturbação';
-  else if(!HAS_DIST)status.textContent='Regime estacionário (sem perturbação)';
   else if(pam < BASE_OUT.PAM - 5.0)status.textContent='PAM caiu mais de 5 mmHg em relação ao basal do cenário; compensações em curso';
   else if(k>1.15 && k > BASE.K_plasma + 0.10)status.textContent='Índice relativo de K⁺ elevado em relação ao basal do cenário';
   else if(DRUGS.ace>0.05 && bk>1.50)status.textContent='IECA: bradicinina elevada no modelo';
   else if(DRUGS.arb>0.05)status.textContent='BRA: sinalização AT1 reduzida no modelo';
   else if(DRUGS.ace>0.05)status.textContent='IECA: conversão Ang I → Ang II reduzida';
   else if(DRUGS.dri>0.05)status.textContent='Inibidor da renina ativo no modelo';
+  else if(!HAS_DIST)status.textContent='Regime estacionário (sem perturbação)';
   else status.textContent='Resposta do modelo à perturbação';
 }
 function loop(ts){
