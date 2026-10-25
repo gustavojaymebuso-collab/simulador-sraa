@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-Simulador didático do Sistema Renina-Angiotensina-Aldosterona (SRAA) — revisão v7
+Simulador didático do Sistema Renina-Angiotensina-Aldosterona (SRAA) — v9 com comparação
 
 Execução:
     streamlit run sraa_sim.py
@@ -19,7 +19,7 @@ import streamlit as st
 from scipy.integrate import solve_ivp
 from scipy.optimize import least_squares
 
-st.set_page_config(page_title="Simulador didático do SRAA v7", layout="wide")
+st.set_page_config(page_title="Simulador didático do SRAA v9", layout="wide")
 
 # =====================================================================
 # 1. PARÂMETROS E CONVENÇÕES
@@ -468,11 +468,115 @@ def simulate(drop=0.20, t_end=60.0, is_chronic=False, drugs=None, params=None):
 # =====================================================================
 # 2. INTERFACE STREAMLIT
 # =====================================================================
-st.title("🫘 Simulador didático do SRAA — v7")
+st.title("🫘 Simulador didático do SRAA — v9 (comparação de regimes)")
 st.caption(
     "Modelo qualitativo de hemodinâmica, cascata hormonal, feedback e efeitos farmacológicos. "
     "Não se destina a diagnóstico ou decisão terapêutica."
 )
+
+PRESETS = {
+    "Sem fármaco": {"ace": 0.0, "arb": 0.0, "dri": 0.0},
+    "IECA máximo": {"ace": 1.0, "arb": 0.0, "dri": 0.0},
+    "BRA máximo": {"ace": 0.0, "arb": 1.0, "dri": 0.0},
+    "Inibidor da renina máximo": {"ace": 0.0, "arb": 0.0, "dri": 1.0},
+    "IECA + BRA máximos": {"ace": 1.0, "arb": 1.0, "dri": 0.0},
+    "Triplo bloqueio máximo": {"ace": 1.0, "arb": 1.0, "dri": 1.0},
+    "Personalizado": None,
+}
+
+
+def regime_label(regime):
+    """Cria um rótulo compacto para a legenda da comparação."""
+    labels = []
+    for key, name in (("ace", "IECA"), ("arb", "BRA"), ("dri", "Inibidor da renina")):
+        value = float(regime.get(key, 0.0))
+        if value > 0.0001:
+            labels.append(f"{name} {value:.1f}".replace(".", ","))
+    return "Sem fármaco" if not labels else " + ".join(labels)
+
+
+def basal_value(sim_data, key):
+    """Obtém o basal correspondente a cada série, específico do regime."""
+    state_map = {
+        "R": "R", "A1": "A1", "A2": "A2", "Ald": "Ald", "ADH": "ADH",
+        "BK": "BK", "Na": "Na_body", "K": "K_plasma", "V": "Vol",
+    }
+    if key in ("PAM", "GFR", "AT1", "AT2"):
+        return float(sim_data["baseline_outputs"][key])
+    return float(sim_data["baseline"][state_map[key]])
+
+
+def fmt_value(value, key):
+    if key in ("PAM", "GFR"):
+        return f"{float(value):.1f}"
+    return f"{float(value):.2f}"
+
+
+def deviation_pct(value, baseline):
+    if abs(baseline) < 1e-12:
+        return 0.0
+    return 100.0 * (float(value) / float(baseline) - 1.0)
+
+
+def sequence_summary(sim_data, key):
+    """Pré → ponto de maior desvio percentual absoluto → final."""
+    times = sim_data["t"]
+    vals = sim_data[key]
+    baseline = basal_value(sim_data, key)
+    pre_indices = [i for i, t in enumerate(times) if t < 0]
+    post_indices = [i for i, t in enumerate(times) if t >= 0]
+    pre_idx = pre_indices[-1] if pre_indices else 0
+    final_idx = len(vals) - 1
+    if post_indices:
+        extreme_idx = max(
+            post_indices,
+            key=lambda i: abs(deviation_pct(vals[i], baseline)),
+        )
+    else:
+        extreme_idx = pre_idx
+    pre = fmt_value(vals[pre_idx], key)
+    extreme = fmt_value(vals[extreme_idx], key)
+    final = fmt_value(vals[final_idx], key)
+    ext_pct = deviation_pct(vals[extreme_idx], baseline)
+    fin_pct = deviation_pct(vals[final_idx], baseline)
+    return (
+        f"{pre} → {extreme} ({ext_pct:+.1f}%) → "
+        f"{final} ({fin_pct:+.1f}%)"
+    )
+
+
+def final_delta_text(sim_a, sim_b, key):
+    delta = float(sim_b[key][-1]) - float(sim_a[key][-1])
+    if key in ("PAM", "GFR"):
+        return f"{delta:+.1f}"
+    return f"{delta:+.2f}"
+
+
+def pam_recovery_time(sim_data, fraction=0.95):
+    """Primeiro instante em que a PAM atinge fraction do seu próprio basal."""
+    baseline = float(sim_data["baseline_outputs"]["PAM"])
+    threshold = fraction * baseline
+    times = sim_data["t"]
+    values = sim_data["PAM"]
+    for i, time_value in enumerate(times):
+        if time_value >= 0 and values[i] >= threshold:
+            return float(time_value)
+    return None
+
+
+def format_recovery(time_value, chronic):
+    if time_value is None:
+        return "Não atingiu 95% até o fim"
+    if time_value <= 1e-9:
+        return "0 min (já ≥95%)"
+    if chronic:
+        if time_value < 60:
+            return f"{time_value:.1f} min"
+        if time_value < 1440:
+            return f"{time_value / 60:.2f} h"
+        return f"{time_value / 1440:.2f} dias"
+    return f"{time_value:.1f} min"
+
 
 with st.sidebar:
     st.header("1. Cenário e tempo")
@@ -498,32 +602,115 @@ with st.sidebar:
         dur = st.slider("Duração (minutos)", 15, 120, 60, 15)
         t_end = float(dur)
 
-    st.header("2. Farmacologia")
+    compare_enabled = st.checkbox("📈 Comparar dois regimes lado a lado", value=False, disabled=teste_eq)
+
+    st.header("2. Farmacologia — Regime A")
     if teste_eq:
         ace, arb, dri = 0.0, 0.0, 0.0
         st.info("Fármacos desativados no teste de equilíbrio.")
     else:
-        ace = st.slider("IECA — intensidade sobre a conversão via ECA", 0.0, 1.0, 0.0, 0.1)
-        arb = st.slider("BRA — intensidade do bloqueio funcional de AT1", 0.0, 1.0, 0.0, 0.1)
-        dri = st.slider("Inibidor da renina — intensidade de inibição", 0.0, 1.0, 0.0, 0.1)
-        st.caption("São intensidades didáticas, não doses. Em 0,1, a ação direta no alvo é de aproximadamente 8,5–9%; os efeitos finais na PAM/TFG podem diferir por causa dos feedbacks.")
-        st.caption("Os fármacos já estão ativos antes da perturbação; o equilíbrio é recalculado para esse regime.")
+        ace = st.slider("IECA — intensidade sobre a conversão via ECA", 0.0, 1.0, 0.0, 0.1, key="drug_a_ace")
+        arb = st.slider("BRA — intensidade do bloqueio funcional de AT1", 0.0, 1.0, 0.0, 0.1, key="drug_a_arb")
+        dri = st.slider("Inibidor da renina — intensidade de inibição", 0.0, 1.0, 0.0, 0.1, key="drug_a_dri")
+        st.caption("São intensidades didáticas, não doses. Os fármacos já estão ativos antes da perturbação; o equilíbrio é recalculado para cada regime.")
 
-drugs = {"ace": float(ace), "arb": float(arb), "dri": float(dri)}
+    drugs = {"ace": float(ace), "arb": float(arb), "dri": float(dri)}
+    drugs_b = None
+    label_b = ""
+    diagram_regime = "A"
+
+    if compare_enabled and not teste_eq:
+        st.header("3. Farmacologia — Regime B")
+        preset_b = st.selectbox(
+            "Preset do Regime B",
+            list(PRESETS.keys()),
+            index=list(PRESETS.keys()).index("BRA máximo"),
+        )
+        if PRESETS[preset_b] is None:
+            b_ace = st.slider("IECA — Regime B", 0.0, 1.0, 0.0, 0.1, key="drug_b_ace")
+            b_arb = st.slider("BRA — Regime B", 0.0, 1.0, 1.0, 0.1, key="drug_b_arb")
+            b_dri = st.slider("Inibidor da renina — Regime B", 0.0, 1.0, 0.0, 0.1, key="drug_b_dri")
+            drugs_b = {"ace": float(b_ace), "arb": float(b_arb), "dri": float(b_dri)}
+        else:
+            drugs_b = dict(PRESETS[preset_b])
+        label_b = regime_label(drugs_b)
+        diagram_choice = st.selectbox("Diagrama animado mostra", ["Regime A", "Regime B"], index=0)
+        diagram_regime = "B" if diagram_choice == "Regime B" else "A"
+        st.caption("Curva contínua = A; curva tracejada = B. Cada regime mantém seu próprio basal.")
+
+label_a = regime_label(drugs)
 try:
     data = simulate(drop=queda / 100.0, t_end=t_end, is_chronic=is_chronic, drugs=drugs, params=PARAMS)
 except Exception as exc:
-    st.error(f"Não foi possível concluir a simulação: {exc}")
+    st.error(f"Não foi possível concluir a simulação do Regime A: {exc}")
     st.stop()
 
 if not data["equilibrium_ok"]:
     st.warning(
-        "O algoritmo não encontrou um equilíbrio com resíduo suficientemente pequeno. "
-        "Interprete esse cenário com cautela; reveja os parâmetros ou a intensidade dos fármacos. "
+        "O algoritmo não encontrou um equilíbrio com resíduo suficientemente pequeno no Regime A. "
+        "Interprete este cenário com cautela; reveja os parâmetros ou a intensidade dos fármacos. "
         f"Resíduo máximo normalizado: {data['equilibrium_residual']:.2e}."
     )
 
-payload = json.dumps(data, separators=(",", ":"))
+data_b = None
+comparison_payload = None
+if compare_enabled and drugs_b is not None:
+    try:
+        data_b = simulate(drop=queda / 100.0, t_end=t_end, is_chronic=is_chronic, drugs=drugs_b, params=PARAMS)
+    except Exception as exc:
+        st.error(f"Não foi possível concluir a simulação do Regime B: {exc}")
+        st.stop()
+    # Não interpolar: os dois regimes precisam ter exatamente a mesma grade temporal.
+    if data["t"] != data_b["t"]:
+        st.error("As simulações A e B não compartilham exatamente o mesmo vetor de tempo; a comparação foi interrompida para evitar interpolação silenciosa.")
+        st.stop()
+    comparison_keys = ("PAM", "GFR", "R", "A1", "A2", "AT1", "AT2", "Ald", "ADH", "BK", "Na", "K", "V")
+    comparison_payload = {key: data_b[key] for key in comparison_keys}
+    comparison_payload.update({
+        "drugs": data_b["drugs"],
+        "baseline": data_b["baseline"],
+        "baseline_outputs": data_b["baseline_outputs"],
+        "equilibrium_ok": data_b["equilibrium_ok"],
+        "equilibrium_residual": data_b["equilibrium_residual"],
+    })
+    if not data_b["equilibrium_ok"]:
+        st.warning(
+            "O algoritmo não encontrou um equilíbrio com resíduo suficientemente pequeno no Regime B. "
+            f"Resíduo máximo normalizado: {data_b['equilibrium_residual']:.2e}."
+        )
+
+payload_data = dict(data)
+payload_data.update({
+    "cmp": comparison_payload,
+    "compare_enabled": bool(compare_enabled and comparison_payload is not None),
+    "diagram_regime": diagram_regime,
+    "labelA": label_a,
+    "labelB": label_b,
+})
+
+if compare_enabled and data_b is not None:
+    if drugs.get("ace", 0) > 0 and drugs.get("arb", 0) == 0 and drugs.get("dri", 0) == 0 \
+       and drugs_b.get("arb", 0) > 0 and drugs_b.get("ace", 0) == 0 and drugs_b.get("dri", 0) == 0:
+        compare_hint = (
+            "Observe: com IECA, a Ang II tende a cair e a bradicinina aumenta; com BRA, a Ang II pode aumentar "
+            "e a sinalização via AT2 sobe, enquanto a bradicinina permanece no basal do modelo. "
+            "A TFG é estimada e a variação é calculada em relação ao basal próprio de cada regime."
+        )
+    elif drugs.get("arb", 0) > 0 and drugs.get("ace", 0) == 0 and drugs.get("dri", 0) == 0 \
+         and drugs_b.get("ace", 0) > 0 and drugs_b.get("arb", 0) == 0 and drugs_b.get("dri", 0) == 0:
+        compare_hint = (
+            "Observe: com BRA, a Ang II pode aumentar e a sinalização via AT2 sobe; com IECA, a Ang II tende a cair "
+            "e a bradicinina aumenta. A TFG é estimada e a variação é calculada em relação ao basal próprio de cada regime."
+        )
+    else:
+        compare_hint = (
+            "Compare a direção e a magnitude das curvas. Cada regime começa em seu próprio estado estacionário; "
+            "as porcentagens da tabela usam esse basal, não um único basal comum."
+        )
+else:
+    compare_hint = ""
+payload_data["comparison_hint"] = compare_hint
+payload = json.dumps(payload_data, separators=(",", ":"))
 
 # =====================================================================
 # 3. INTERFACE HTML/SVG/CANVAS
@@ -565,13 +752,19 @@ button.pri:hover{background:#185a95;}
 .alert{background:#ffe5e5;border-left:6px solid #d32f2f;color:#b71c1c;padding:9px 12px;border-radius:6px;font-weight:700;font-size:12px;box-shadow:0 4px 12px rgba(0,0,0,0.15);display:none;}
 .alert.warning{background:#fff3e0;border-color:#f57c00;color:#e65100;}
 .note{font-size:11px;color:#7a8ba3;margin:7px 2px 0;line-height:1.4;}
+.comparison-legend{border:1px solid #dbe4f0;background:#f8fafc;border-radius:10px;padding:8px 12px;margin-top:10px;display:flex;gap:12px;align-items:flex-start;flex-wrap:wrap;}
+.legend-items{display:flex;gap:18px;align-items:center;flex-wrap:wrap;}
+.legend-item{display:inline-flex;gap:7px;align-items:center;font-size:12px;color:#334155;}
+.line-sample{display:inline-block;width:34px;height:0;border-top:3px solid #334155;}
+.line-sample.dashed{border-top-style:dashed;}
+.comparison-hint{flex-basis:100%;font-size:11px;color:#64748b;line-height:1.4;}
 </style></head><body><div class="wrap">
 <div id="alertBox">
   <div id="alertCough" class="alert warning">⚠ Índice de bradicinina elevado neste modelo (não é previsão de tosse individual).</div>
   <div id="alertK" class="alert">⚠ Índice de K⁺ elevado (não equivale a diagnóstico de hipercalemia).</div>
 </div>
 <div class="top">
-  <div class="pam"><span id="pamv">90</span> <span style="font-size:14px;color:#7a8ba3">mmHg</span><small>Pressão arterial média estimada</small></div>
+  <div class="pam"><span id="pamv">90</span> <span style="font-size:14px;color:#7a8ba3">mmHg</span><small id="pamLabel">Pressão arterial média estimada</small></div>
   <div class="gw"><div class="gauge"><i id="gfill"></i></div></div>
   <div class="clock" id="clock">t = 0 min</div>
 </div>
@@ -622,13 +815,20 @@ button.pri:hover{background:#185a95;}
     <text class="ttl" x="510" y="175" font-size="13">Bradicinina</text>
     <text class="val" x="510" y="200" id="vBK" fill="#9b59b6">BK 1.00</text></g>
 </svg>
+<div class="comparison-legend" id="comparisonLegend" style="display:none">
+  <div class="legend-items">
+    <span class="legend-item"><i class="line-sample solid"></i><strong id="labelA">Regime A</strong></span>
+    <span class="legend-item"><i class="line-sample dashed"></i><strong id="labelB">Regime B</strong></span>
+  </div>
+  <div class="comparison-hint" id="comparisonHint"></div>
+</div>
 <div class="charts">
   <div class="card"><h4>PAM e TFG estimada</h4><div class="hint">Eixo esquerdo: mmHg · eixo direito: mL/min/1,73 m²</div><canvas id="c1" width="600" height="260"></canvas></div>
   <div class="card"><h4>Cascata hormonal</h4><div class="hint">Índices relativos (referência sem fármacos = 1)</div><canvas id="c2" width="600" height="260"></canvas></div>
 </div>
 <div class="charts">
   <div class="card"><h4>Sinalização dos receptores</h4><div class="hint">Atividade efetiva relativa (referência sem fármacos = 1)</div><canvas id="c3" width="600" height="260"></canvas></div>
-  <div class="card"><h4>Volume relativo e aldosterona</h4><div class="hint">Índices relativos (referência sem fármacos = 1)</div><canvas id="c4" width="600" height="260"></canvas></div>
+  <div class="card"><h4>Aldosterona, volume e bradicinina</h4><div class="hint">Índices relativos (referência sem fármacos = 1)</div><canvas id="c4" width="600" height="260"></canvas></div>
   <div class="card"><h4>Sódio corporal e K⁺ plasmático</h4><div class="hint">Referência sem fármacos = 1; não são concentrações clínicas</div><canvas id="c5" width="600" height="260"></canvas></div>
 </div>
 <div class="bar">
@@ -640,13 +840,19 @@ button.pri:hover{background:#185a95;}
 </div>
 <script>
 const D = __DATA__;
-const T=D.t, PAM=D.PAM, GFR=D.GFR, RR=D.R, A1=D.A1, A2=D.A2, AT1=D.AT1, AT2=D.AT2,
-      ALD=D.Ald, ADH=D.ADH, BK=D.BK, NA=D.Na, K=D.K, V=D.V, SS=D.S;
+const CMP = D.cmp || null;
+const IS_COMPARE = Boolean(D.compare_enabled && CMP);
+const T = D.t;
+// O diagrama animado pode mostrar A ou B, enquanto todos os gráficos comparam A/B.
+const DIAG = (D.diagram_regime === 'B' && CMP) ? CMP : D;
 const T0=T[0], T1=T[T.length-1], IS_CHRONIC=D.is_chronic;
 const HAS_DIST=D.drop>0;
-const DRUGS=D.drugs;
-const BASE=D.baseline;
-const BASE_OUT=D.baseline_outputs;
+const DRUGS=DIAG.drugs;
+const BASE=DIAG.baseline;
+const BASE_OUT=DIAG.baseline_outputs;
+const PAM=DIAG.PAM, GFR=DIAG.GFR, RR=DIAG.R, A1=DIAG.A1, A2=DIAG.A2,
+      AT1=DIAG.AT1, AT2=DIAG.AT2, ALD=DIAG.Ald, ADH=DIAG.ADH, BK=DIAG.BK,
+      NA=DIAG.Na, K=DIAG.K, V=DIAG.V, SS=DIAG.S;
 const lerp=(a,b,f)=>a+(b-a)*f;
 function sample(arr,t){
   const n=T.length; if(t<=T[0])return arr[0]; if(t>=T[n-1])return arr[n-1];
@@ -658,21 +864,46 @@ function fmtTick(v,step){
   const decimals=step<0.1?2:(step<1?2:(step<10?1:0));
   return Number(v).toFixed(decimals);
 }
-function getRange(vals){
-  let mn=Math.min(...vals), mx=Math.max(...vals), span=mx-mn;
-  if(span < 1e-8){const pad=Math.max(Math.abs(mx)*0.05,0.05); mn-=pad; mx+=pad;}
-  else {const pad=Math.max(span*0.12, Math.abs(mx)*0.005, 0.005); mn-=pad; mx+=pad;}
-  if(mn>0 && Math.min(...vals)>0) mn=Math.max(0,mn);
+// Percorre arrays explicitamente; evita passar dezenas de milhares de argumentos
+// para Math.min/Math.max no modo crônico com duas séries sobrepostas.
+function getRange(series){
+  let mn=Infinity, mx=-Infinity, rawMin=Infinity, rawMax=-Infinity;
+  for(const s of series){
+    const arrays=[s.data,s.dataB];
+    for(const arr of arrays){
+      if(!arr)continue;
+      for(let i=0;i<arr.length;i++){
+        const v=arr[i];
+        if(!Number.isFinite(v))continue;
+        if(v<mn)mn=v;if(v>mx)mx=v;
+        if(v<rawMin)rawMin=v;if(v>rawMax)rawMax=v;
+      }
+    }
+  }
+  if(!Number.isFinite(mn)||!Number.isFinite(mx))return [0,1];
+  const span=mx-mn;
+  if(span<1e-8){const pad=Math.max(Math.abs(mx)*0.05,0.05);mn-=pad;mx+=pad;}
+  else {const pad=Math.max(span*0.12,Math.abs(mx)*0.005,0.005);mn-=pad;mx+=pad;}
+  // Só fixa zero como limite se a margem gerou um limite negativo para séries positivas.
+  if(rawMin>0 && mn<0)mn=0;
   return [mn,mx];
+}
+function setPath(ctx,times,arr,px,py,color,dashed){
+  ctx.strokeStyle=color;ctx.lineWidth=2.2;ctx.setLineDash(dashed?[6,4]:[]);ctx.beginPath();
+  for(let i=0;i<times.length;i++){
+    const x=px(times[i]),y=py(arr[i]);
+    if(i===0)ctx.moveTo(x,y);else ctx.lineTo(x,y);
+  }
+  ctx.stroke();ctx.setLineDash([]);
 }
 function makeChart(cv,config){
   const ctx=cv.getContext('2d'), W=cv.width, H=cv.height;
   const L=52, R=config.hasRightAxis?52:12, Tp=28, B=32;
   const leftSeries=config.series.filter(s=>s.axis!=='right');
   const rightSeries=config.series.filter(s=>s.axis==='right');
-  const [y1min,y1max]=getRange(leftSeries.flatMap(s=>s.data));
+  const [y1min,y1max]=getRange(leftSeries);
   let y2min=0,y2max=1;
-  if(config.hasRightAxis && rightSeries.length){[y2min,y2max]=getRange(rightSeries.flatMap(s=>s.data));}
+  if(config.hasRightAxis && rightSeries.length){[y2min,y2max]=getRange(rightSeries);}
   const px=t=>L+(t-T0)/(T1-T0)*(W-L-R);
   const pyLeft=v=>Tp+(1-(v-y1min)/(y1max-y1min))*(H-Tp-B);
   const pyRight=v=>Tp+(1-(v-y2min)/(y2max-y2min))*(H-Tp-B);
@@ -682,7 +913,7 @@ function makeChart(cv,config){
   for(let i=0;i<=4;i++){
     const f=i/4,v=y1min+(y1max-y1min)*f,y=pyLeft(v);
     o.strokeStyle='#eef2f8';o.lineWidth=1;o.beginPath();o.moveTo(L,y);o.lineTo(W-R,y);o.stroke();
-    o.fillStyle=leftSeries[0].color;o.textAlign='right';o.textBaseline='middle';
+    o.fillStyle=leftSeries.length?leftSeries[0].color:'#9aabc2';o.textAlign='right';o.textBaseline='middle';
     o.fillText(fmtTick(v,(y1max-y1min)/4),L-6,y);
     if(config.hasRightAxis && rightSeries.length){
       const vr=y2min+(y2max-y2min)*f;
@@ -693,16 +924,15 @@ function makeChart(cv,config){
   for(let i=0;i<=4;i++){
     const t=T0+(T1-T0)*i/4,x=px(t);
     let label;
-    if(t<0) label='pré';
+    if(t<0)label='pré';
     else label=IS_CHRONIC?(t/1440).toFixed(t/1440<10?1:0):t.toFixed(0);
     o.fillStyle='#9aabc2';o.textAlign='center';o.textBaseline='top';o.fillText(label,x,H-B+7);
   }
   if(HAS_DIST){o.strokeStyle='#e8b04b';o.lineWidth=2;o.setLineDash([5,5]);o.beginPath();o.moveTo(px(0),Tp);o.lineTo(px(0),H-B);o.stroke();o.setLineDash([]);}
   config.series.forEach(s=>{
     const py=s.axis==='right'?pyRight:pyLeft;
-    o.strokeStyle=s.color;o.lineWidth=2;o.beginPath();
-    for(let i=0;i<T.length;i++){const x=px(T[i]),y=py(s.data[i]);i?o.lineTo(x,y):o.moveTo(x,y);}
-    o.stroke();
+    setPath(o,T,s.data,px,py,s.color,false);
+    if(IS_COMPARE && s.dataB)setPath(o,T,s.dataB,px,py,s.color,true);
   });
   if(config.legend){
     o.font='11px -apple-system,Segoe UI,Roboto,sans-serif';o.textAlign='left';o.textBaseline='middle';
@@ -710,27 +940,46 @@ function makeChart(cv,config){
     config.series.forEach(s=>{
       const width=15+o.measureText(s.name).width+10;
       if(lx+width>W-R){lx=L+4;ly+=13;}
-      o.fillStyle=s.color;o.fillRect(lx,ly,12,3);o.fillStyle='#5a6b85';o.fillText(s.name,lx+16,ly+2);
-      lx+=width;
+      o.setLineDash([]);o.strokeStyle=s.color;o.lineWidth=2.5;o.beginPath();o.moveTo(lx,ly);o.lineTo(lx+12,ly);o.stroke();
+      o.fillStyle='#5a6b85';o.fillText(s.name,lx+16,ly+2);lx+=width;
     });
   }
   return {ctx,off,px,pyLeft,pyRight,W,H,L,R,Tp,B,config};
 }
+function chartSeries(key,name,color,axis='left'){
+  return {name,data:D[key],dataB:(IS_COMPARE?CMP[key]:null),color,axis};
+}
 const ch1=makeChart(document.getElementById('c1'),{hasRightAxis:true,legend:true,series:[
-  {name:'PAM',data:PAM,color:'#c0392b',axis:'left'}, {name:'TFG estimada',data:GFR,color:'#2980b9',axis:'right'}]});
-const ch2=makeChart(document.getElementById('c2'),{hasRightAxis:false,legend:true,series:[
-  {name:'Renina',data:RR,color:'#7b52ab',axis:'left'}, {name:'Ang I',data:A1,color:'#2a9d8f',axis:'left'}, {name:'Ang II',data:A2,color:'#e76f51',axis:'left'}]});
+  chartSeries('PAM','PAM','#c0392b','left'),chartSeries('GFR','TFG estimada','#2980b9','right')]});
+const cascadeSeries=IS_COMPARE
+  ? [chartSeries('R','Renina','#7b52ab'),chartSeries('A2','Ang II','#e76f51')]
+  : [chartSeries('R','Renina','#7b52ab'),chartSeries('A1','Ang I','#2a9d8f'),chartSeries('A2','Ang II','#e76f51')];
+const ch2=makeChart(document.getElementById('c2'),{hasRightAxis:false,legend:true,series:cascadeSeries});
 const ch3=makeChart(document.getElementById('c3'),{hasRightAxis:false,legend:true,series:[
-  {name:'AT1',data:AT1,color:'#d35400',axis:'left'}, {name:'AT2',data:AT2,color:'#f39c12',axis:'left'}]});
+  chartSeries('AT1','AT1','#d35400'),chartSeries('AT2','AT2','#f39c12')]});
 const ch4=makeChart(document.getElementById('c4'),{hasRightAxis:false,legend:true,series:[
-  {name:'Aldosterona',data:ALD,color:'#1d6fb8',axis:'left'}, {name:'Volume',data:V,color:'#8e44ad',axis:'left'}]});
+  chartSeries('Ald','Aldosterona','#1d6fb8'),chartSeries('V','Volume','#8e44ad'),chartSeries('BK','Bradicinina','#9b59b6')]});
 const ch5=makeChart(document.getElementById('c5'),{hasRightAxis:false,legend:true,series:[
-  {name:'Na corporal',data:NA,color:'#1d6fb8',axis:'left'}, {name:'K plasmático',data:K,color:'#d32f2f',axis:'left'}]});
+  chartSeries('Na','Na corporal','#1d6fb8'),chartSeries('K','K plasmático','#d32f2f')]});
+function drawMarker(ctx,x,y,color,hollow){
+  ctx.beginPath();ctx.arc(x,y,hollow?4.5:4,0,Math.PI*2);
+  ctx.fillStyle=hollow?'#ffffff':color;ctx.fill();ctx.strokeStyle=hollow?color:'#ffffff';ctx.lineWidth=hollow?2:1.5;ctx.stroke();
+}
 function drawChart(ch,t){
   const c=ch.ctx;c.clearRect(0,0,ch.W,ch.H);c.drawImage(ch.off,0,0);
   const x=ch.px(t);c.strokeStyle='#22344f';c.lineWidth=1.2;c.beginPath();c.moveTo(x,ch.Tp);c.lineTo(x,ch.H-ch.B);c.stroke();
-  ch.config.series.forEach(s=>{const py=s.axis==='right'?ch.pyRight:ch.pyLeft;const y=py(sample(s.data,t));
-    c.beginPath();c.arc(x,y,4,0,Math.PI*2);c.fillStyle=s.color;c.fill();c.strokeStyle='#fff';c.lineWidth=1.5;c.stroke();});
+  ch.config.series.forEach(s=>{
+    const py=s.axis==='right'?ch.pyRight:ch.pyLeft;
+    drawMarker(c,x,py(sample(s.data,t)),s.color,false);
+    if(IS_COMPARE && s.dataB)drawMarker(c,x,py(sample(s.dataB,t)),s.color,true);
+  });
+}
+const legendBox=document.getElementById('comparisonLegend');
+if(IS_COMPARE){
+  legendBox.style.display='flex';
+  document.getElementById('labelA').textContent='A — '+D.labelA+' (linha contínua)';
+  document.getElementById('labelB').textContent='B — '+D.labelB+' (linha tracejada)';
+  document.getElementById('comparisonHint').textContent=D.comparison_hint||'Cada regime tem seu próprio basal.';
 }
 function deviationScale(v,baseline){
   // Escala fixa entre cenários: 50% de mudança relativa ao basal satura em 1.
@@ -749,6 +998,7 @@ function render(dt){
   const pam=sample(PAM,simT),r=sample(RR,simT),a1=sample(A1,simT),a2=sample(A2,simT),at1=sample(AT1,simT),at2=sample(AT2,simT),
         al=sample(ALD,simT),adh=sample(ADH,simT),bk=sample(BK,simT),na=sample(NA,simT),k=sample(K,simT),vol=sample(V,simT);
   document.getElementById('pamv').textContent=pam.toFixed(1);
+  document.getElementById('pamLabel').textContent='PAM estimada · '+(D.diagram_regime==='B'&&CMP?'Regime B':'Regime A');
   document.getElementById('gfill').style.width=(100-clamp(pam/120*100,0,100))+'%';
   let timeStr=IS_CHRONIC?(Math.max(simT,0)/1440).toFixed(2)+' dias':Math.max(simT,0).toFixed(1)+' min';
   if(simT<0)timeStr='pré-perturbação';
@@ -784,7 +1034,7 @@ function render(dt){
   const status=document.getElementById('status');
   if(simT<0)status.textContent='Regime basal antes da perturbação';
   else if(pam < BASE_OUT.PAM - 5.0)status.textContent='PAM caiu mais de 5 mmHg em relação ao basal do cenário; compensações em curso';
-  else if(k>1.15 && k > BASE.K_plasma + 0.10)status.textContent='Índice relativo de K⁺ elevado em relação ao basal do cenário';
+  else if(k>1.15)status.textContent='Índice relativo de K⁺ elevado no modelo';
   else if(DRUGS.ace>0.05 && bk>1.50)status.textContent='IECA: bradicinina elevada no modelo';
   else if(DRUGS.arb>0.05)status.textContent='BRA: sinalização AT1 reduzida no modelo';
   else if(DRUGS.ace>0.05)status.textContent='IECA: conversão Ang I → Ang II reduzida';
@@ -806,8 +1056,262 @@ requestAnimationFrame(loop);
 </script></body></html>
 """
 
+CELL_TEMPLATE = r"""
+<!DOCTYPE html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+:root{--ink:#1b2b4b;--muted:#64748b;--line:#dbe4f0;--blue:#1d6fb8;--yellow:#f1c40f;--red:#d94841;--purple:#8e44ad;--green:#198754;}
+*{box-sizing:border-box} body{margin:0;background:#fff;color:var(--ink);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif}
+.wrap{padding:10px 12px 14px}.header{display:flex;align-items:flex-start;gap:12px;justify-content:space-between;flex-wrap:wrap}
+h2{margin:0 0 4px;font-size:21px}.sub{font-size:12px;color:var(--muted);line-height:1.45;margin:0 0 10px}
+.pill{border:1px solid #dbeafe;background:#eff6ff;border-radius:999px;padding:5px 10px;font-size:12px;color:#1e40af;white-space:nowrap}
+.controls{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin:7px 0}
+button{border:1px solid #cbd5e1;background:#fff;color:#1e293b;border-radius:8px;padding:7px 10px;font-size:12px;font-weight:650;cursor:pointer}
+button:hover{background:#f1f5f9}button.primary,.stage.on{background:#1d6fb8;color:#fff;border-color:#1d6fb8}
+button:focus-visible,input:focus-visible{outline:3px solid #93c5fd;outline-offset:2px}
+#stageButtons{display:flex;gap:5px;flex-wrap:wrap}.stage{min-width:35px}
+.statusbox{border:1px solid var(--line);background:#f8fafc;border-radius:9px;padding:9px 11px;margin:8px 0;font-size:12px;line-height:1.45}
+.timebar{display:flex;gap:10px;align-items:center;flex-wrap:wrap;font-size:12px;color:var(--muted);margin:8px 0}
+input[type=range]{flex:1;min-width:180px;accent-color:#1d6fb8}
+svg{width:100%;height:auto;display:block;background:#fff;border:1px solid var(--line);border-radius:12px}
+.regionLabel{font-size:15px;font-weight:700;fill:#334155;text-anchor:middle}.smallLabel{font-size:12px;fill:#475569;text-anchor:middle}.tinyLabel{font-size:10px;fill:#64748b;text-anchor:middle}
+.guide{fill:none;stroke:#94a3b8;stroke-width:2;stroke-dasharray:5 6;opacity:.6}.particle{pointer-events:none}
+#cellBody{fill:#e5f4fb;stroke:#4c9dbb;stroke-width:3} .membrane{fill:#9bd2e6;stroke:#3985a4;stroke-width:1.4}
+.protein{stroke:#0f5f8f;stroke-width:2;fill:#60a5c9}.pump{stroke:#0f5f8f;stroke-width:2;fill:#7fc4dd}
+#nucleus{fill:#d8dcf8;stroke:#7c83c9;stroke-width:2}#dna{fill:none;stroke:#6d71bd;stroke-width:2.4;stroke-linecap:round}
+#receptor{fill:#d7c6f1;stroke:#7e57a3;stroke-width:2.2}#receptorHalo{fill:#f4eaff;stroke:#9b59b6;stroke-width:2;opacity:0}
+#gateA,#gateB{stroke:#0f5f8f;stroke-width:4;stroke-linecap:round;transition:transform .35s ease}
+#newChannel,#newPump{opacity:.22;transition:opacity .45s ease,filter .45s ease}#newChannel.visible,#newPump.visible{opacity:1;filter:drop-shadow(0 0 4px #61a5cf)}
+#nucleus.glow{filter:drop-shadow(0 0 8px #9b9de8)}#gateA,#gateB{transform-box:fill-box;transform-origin:center}#atpFlash{opacity:0;fill:#facc15;stroke:#ca8a04;stroke-width:2}#atpFlash.on{opacity:1}
+#naFlux,#kFlux{opacity:.75}.legend{display:flex;gap:12px;flex-wrap:wrap;font-size:11px;color:#475569;margin:8px 2px}
+.key{display:inline-flex;align-items:center;gap:5px}.dot{display:inline-block;width:9px;height:9px;border-radius:50%}
+.foot{font-size:11px;color:#64748b;line-height:1.5;margin-top:8px}
+@media(prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}button{scroll-behavior:auto}}
+</style></head><body><div class="wrap">
+<div class="header"><div><h2>Como a aldosterona altera o transporte tubular</h2><p class="sub">Célula epitelial do néfron distal — desenho esquemático próprio. A etapa molecular e o atraso de síntese são didáticos; os índices de aldosterona e K⁺ vêm da simulação.</p></div><span class="pill" id="regimeLabel">Regime selecionado</span></div>
+<div class="controls"><button id="modeStep" class="primary">Passo a passo</button><button id="modeContinuous">Simulação contínua</button><button id="playCell">▶ Reproduzir tempo</button><button id="resetCell">↺ Reiniciar partículas</button></div>
+<div id="stageButtons"><button class="stage on" data-stage="1">1 · Ligação</button><button class="stage" data-stage="2">2 · Transcrição</button><button class="stage" data-stage="3">3 · Síntese</button><button class="stage" data-stage="4">4 · Modulação</button><button class="stage" data-stage="5">5 · Transporte</button></div>
+<div class="timebar"><label for="timeSeek">Tempo simulado:</label><input id="timeSeek" type="range" min="0" max="1" step="any" value="0"><strong id="timeReadout">basal</strong><span id="valuesReadout">Ald = 1,00 · K⁺ = 1,00</span></div>
+<div class="statusbox" id="stageText">1. A aldosterona, um esteroide lipossolúvel, difunde-se a partir do sangue e liga-se a um receptor intracelular. Não atravessa um canal iônico.</div>
+<svg id="cellSvg" viewBox="0 0 1100 560" role="img" aria-label="Esquema animado de uma célula tubular com lúmen à esquerda, sangue à direita, receptor intracelular, núcleo, canais apicais e bomba sódio-potássio basolateral">
+ <defs>
+   <marker id="arrBlue" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 Z" fill="#1d6fb8"/></marker>
+   <marker id="arrRed" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 Z" fill="#d94841"/></marker>
+   <marker id="arrPurple" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 Z" fill="#8e44ad"/></marker>
+ </defs>
+ <!-- Compartimentos -->
+ <rect x="18" y="55" width="225" height="450" rx="10" fill="#fff9c9" stroke="#eadf8a"/>
+ <rect id="cellBody" x="280" y="55" width="480" height="450" rx="28"/>
+ <rect x="760" y="55" width="125" height="450" fill="#f1e9fb" stroke="#c4b5d9"/>
+ <rect x="885" y="55" width="195" height="450" rx="10" fill="#fbe6e2" stroke="#e4b4ac"/>
+ <text class="regionLabel" x="130" y="34">Lúmen tubular</text><text class="regionLabel" x="520" y="34">Célula epitelial</text><text class="smallLabel" x="822" y="34">Interstício</text><text class="regionLabel" x="980" y="34">Sangue</text>
+ <!-- Membranas -->
+ <rect class="membrane" x="257" y="65" width="13" height="430" rx="6"/><rect class="membrane" x="768" y="65" width="13" height="430" rx="6"/>
+ <text class="tinyLabel" x="263" y="522">Membrana apical</text><text class="tinyLabel" x="775" y="522">Membrana basolateral</text>
+ <!-- Núcleo e DNA -->
+ <ellipse id="nucleus" cx="505" cy="158" rx="91" ry="57"/><text class="smallLabel" x="505" y="125">Núcleo</text>
+ <path id="dna" d="M450 151 C465 127 480 175 495 151 S525 127 540 151 S570 175 585 151 M450 164 C465 188 480 140 495 164 S525 188 540 164 S570 140 585 164"/>
+ <text class="tinyLabel" x="505" y="201">DNA / transcrição</text>
+ <!-- Receptor e complexo -->
+ <circle id="receptorHalo" cx="663" cy="258" r="26"/><path id="receptor" d="M650 246 L663 258 L650 270 L638 258 Z"/><circle id="boundLigand" cx="663" cy="258" r="5.5" fill="#f1c40f" stroke="#b7791f" stroke-width="1.5" opacity="0"/>
+ <text class="tinyLabel" x="672" y="292">Receptor intracelular</text>
+ <!-- Ribossomo e mRNA -->
+ <path id="mrnaLine" d="M506 216 C495 242 510 255 499 279" fill="none" stroke="#198754" stroke-width="3" stroke-dasharray="4 4" opacity=".3"/>
+ <ellipse id="ribosome" cx="500" cy="302" rx="30" ry="18" fill="#f0c987" stroke="#bd8433" stroke-width="2"/><path d="M475 301 Q500 284 525 301 Q500 319 475 301" fill="none" stroke="#bd8433" stroke-width="2"/>
+ <text class="tinyLabel" x="500" y="333">Ribossomo</text>
+ <!-- Canais apicais: um já existente e um novo -->
+ <rect x="251" y="350" width="25" height="54" rx="8" class="protein"/><path id="gateA" d="M251 369 L276 369"/><path id="gateB" d="M251 383 L276 383"/>
+ <text class="tinyLabel" x="315" y="365" text-anchor="start">Canal de Na⁺</text><text class="tinyLabel" x="315" y="380" text-anchor="start">(ENaC esquemático)</text>
+ <g id="newChannel"><rect x="251" y="416" width="25" height="48" rx="8" class="protein"/><path d="M251 433 L276 433 M251 447 L276 447" stroke="#0f5f8f" stroke-width="3"/><text class="tinyLabel" x="315" y="435" text-anchor="start">Canal novo</text></g>
+ <!-- Bomba Na/K basolateral -->
+ <g id="existingPump"><rect x="744" y="345" width="35" height="75" rx="12" class="pump"/><path d="M752 364 L771 364 M752 378 L771 378 M752 392 L771 392" stroke="#0f5f8f" stroke-width="2.4"/><text class="tinyLabel" x="716" y="438">Na⁺/K⁺-ATPase</text></g>
+ <g id="newPump"><rect x="744" y="430" width="35" height="53" rx="12" class="pump"/><path d="M752 445 L771 445 M752 456 L771 456" stroke="#0f5f8f" stroke-width="2.4"/><text class="tinyLabel" x="717" y="496">Bomba nova</text></g>
+ <circle id="atpFlash" cx="714" cy="373" r="22"/><text x="714" y="377" class="smallLabel" id="atpLabel">ATP</text>
+ <!-- Fluxos visíveis de referência -->
+ <path id="naFlux" d="M70 378 C125 378 194 378 247 378" fill="none" stroke="#1d6fb8" stroke-width="3" marker-end="url(#arrBlue)"/>
+ <text class="smallLabel" x="140" y="360" fill="#1d6fb8">Na⁺ entra</text>
+ <path d="M290 398 C365 398 435 398 500 398" fill="none" stroke="#1d6fb8" stroke-width="1.6" stroke-dasharray="3 5" opacity=".4"/>
+ <path d="M690 350 C750 320 830 318 920 318" fill="none" stroke="#1d6fb8" stroke-width="3" marker-end="url(#arrBlue)"/>
+ <text class="smallLabel" x="850" y="300" fill="#1d6fb8">3 Na⁺ → sangue</text>
+ <path d="M940 415 C875 415 830 405 785 392" fill="none" stroke="#8e44ad" stroke-width="3" marker-end="url(#arrPurple)"/>
+ <text class="smallLabel" x="900" y="440" fill="#8e44ad">2 K⁺ entram</text>
+ <path id="kFlux" d="M320 466 C270 466 218 460 168 460" fill="none" stroke="#d94841" stroke-width="3" marker-end="url(#arrRed)"/>
+ <text class="smallLabel" x="135" y="442" fill="#d94841">K⁺ secretado</text>
+ <!-- Caminhos nomeados usados por getPointAtLength -->
+ <g id="motionPaths" fill="none" stroke="transparent" stroke-width="1">
+   <path id="pathBloodToMR" d="M980 155 C920 155 850 165 790 198 C745 222 700 240 666 257"/>
+   <path id="pathMRToNucleus" d="M650 258 C610 248 600 218 574 194 C557 178 543 170 534 163"/>
+   <path id="pathMRNucleusToRibosome" d="M505 211 C500 235 498 259 500 283"/>
+   <path id="pathVesicleApical" d="M470 305 C423 323 370 344 278 436"/>
+   <path id="pathVesicleBasolateral" d="M525 307 C590 326 672 368 758 456"/>
+   <path id="pathNaApical" d="M78 378 C135 378 195 378 254 378"/>
+   <path id="pathNaPumpOut" d="M695 350 C755 321 835 319 963 318"/>
+   <path id="pathKPumpIn" d="M968 414 C900 414 840 404 778 389"/>
+   <path id="pathKApical" d="M322 466 C270 466 214 460 155 460"/>
+ </g>
+ <g id="particles"></g>
+ <text class="tinyLabel" x="550" y="545">A bomba Na⁺/K⁺-ATPase: 3 Na⁺ para fora + 2 K⁺ para dentro por ATP.</text>
+</svg>
+<div class="legend"><span class="key"><i class="dot" style="background:#f1c40f"></i>Aldosterona (esteroide)</span><span class="key"><i class="dot" style="background:#1d6fb8"></i>Na⁺</span><span class="key"><i class="dot" style="background:#8e44ad"></i>K⁺ entrando pela bomba</span><span class="key"><i class="dot" style="background:#d94841"></i>K⁺ secretado ao lúmen</span><span class="key"><i class="dot" style="background:#198754"></i>RNAm / síntese</span></div>
+<div class="foot"><strong>Tempo didático:</strong> as etapas moleculares são aceleradas para fins de ensino. O atraso de expressão de canais é ilustrativo e não existe como estado separado nas EDOs atuais. A bomba é esquematizada com estequiometria de 3 Na⁺ para fora e 2 K⁺ para dentro por ATP. A aldosterona aumenta a reabsorção de Na⁺ e favorece a secreção de K⁺; o resultado depende de vários mecanismos renais, não somente das partículas mostradas.</div>
+</div>
+<script>
+const D = __CELL_DATA__;
+const T=D.t, ALD=D.Ald, K=D.K;
+const reducedMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+const layer=document.getElementById('particles');
+const parts=[]; const MAX_PARTICLES=150;
+const stageTexts={
+  1:'1. A aldosterona, um esteroide lipossolúvel, difunde-se a partir do sangue e liga-se a um receptor intracelular. Não atravessa um canal iônico.',
+  2:'2. O complexo hormônio–receptor atua no núcleo e modifica a transcrição de genes envolvidos no transporte epitelial.',
+  3:'3. O RNAm segue ao ribossomo; proteínas novas são sintetizadas e transportadas em vesículas para a membrana apical (canais) e basolateral (bombas).',
+  4:'4. Além da síntese, a aldosterona modula proteínas já presentes. A comporta do canal abre mais nesta representação didática.',
+  5:'5. Na⁺ entra do lúmen por canais apicais e é bombeado para o sangue. A Na⁺/K⁺-ATPase transporta 3 Na⁺ para fora e 2 K⁺ para dentro por ATP; parte do K⁺ sai para o lúmen por canais apicais.'
+};
+let simT=T[0], lastFrame=null, lastSimT=T[0], playing=false, mode='step', currentStage=1, channels=Math.max(0.05,D.baseline.Ald||1);
+const tMin=T[0],tMax=T[T.length-1];
+// Filtro passa-baixa ilustrativo da expressão de canais, calculado sobre a grade do modelo.
+const CHANNELS=new Array(T.length); CHANNELS[0]=Math.max(0.05,D.baseline.Ald||1);
+for(let j=1;j<T.length;j++){const dm=Math.max(0,T[j]-T[j-1]);const alpha=1-Math.exp(-dm/20);CHANNELS[j]=CHANNELS[j-1]+(ALD[j]-CHANNELS[j-1])*alpha;}
+function sampleChannelDensity(t){return sample(CHANNELS,t);}
+const timeSeek=document.getElementById('timeSeek'); timeSeek.min=String(tMin);timeSeek.max=String(tMax);timeSeek.value=String(simT);
+document.getElementById('regimeLabel').textContent=D.label+' · animação vinculada ao regime selecionado';
+function clamp(v,a,b){return Math.min(b,Math.max(a,v));}
+function sample(arr,t){if(t<=T[0])return arr[0];if(t>=T[T.length-1])return arr[arr.length-1];let lo=0,hi=T.length-1;while(hi-lo>1){const m=(lo+hi)>>1;if(T[m]<=t)lo=m;else hi=m;}const f=(t-T[lo])/((T[hi]-T[lo])||1);return arr[lo]+(arr[hi]-arr[lo])*f;}
+function stageMessage(n){document.getElementById('stageText').textContent=stageTexts[n];document.querySelectorAll('.stage').forEach(b=>b.classList.toggle('on',Number(b.dataset.stage)===n));}
+function spawn(pathId,speed,color,onEnd=null,r=4){if(parts.length>=MAX_PARTICLES)return false;const path=document.getElementById(pathId);if(!path)return false;let len;try{len=path.getTotalLength();}catch(e){return false;}const el=document.createElementNS('http://www.w3.org/2000/svg','circle');el.setAttribute('r',r);el.setAttribute('fill',color);el.setAttribute('class','particle');el.setAttribute('stroke','#fff');el.setAttribute('stroke-width','1.2');layer.appendChild(el);const point=path.getPointAtLength(0);el.setAttribute('cx',point.x);el.setAttribute('cy',point.y);parts.push({el,path,len,s:0,speed,onEnd});return true;}
+function stepParticles(dt){for(let i=parts.length-1;i>=0;i--){const p=parts[i];p.s+=p.speed*dt;if(p.s>=p.len){p.el.remove();parts.splice(i,1);if(p.onEnd)p.onEnd();continue;}const pt=p.path.getPointAtLength(p.s);p.el.setAttribute('cx',pt.x);p.el.setAttribute('cy',pt.y);}}
+function clearParticles(){while(parts.length){parts.pop().el.remove();}}
+function highlightBinding(){document.getElementById('receptorHalo').style.opacity='1';document.getElementById('boundLigand').style.opacity='1';}
+function startReceptorToNucleus(continueCascade=true){document.getElementById('nucleus').classList.add('glow');spawn('pathMRToNucleus',110,'#8e44ad',()=>{document.getElementById('nucleus').classList.remove('glow');if(continueCascade)spawn('pathMRNucleusToRibosome',105,'#198754',()=>{addVesicles();},4);},4);}
+function addVesicles(){spawn('pathVesicleApical',105,'#60a5c9',()=>document.getElementById('newChannel').classList.add('visible'),7);spawn('pathVesicleBasolateral',105,'#7fc4dd',()=>document.getElementById('newPump').classList.add('visible'),7);}
+function flashATP(){const el=document.getElementById('atpFlash');el.classList.add('on');window.setTimeout(()=>el.classList.remove('on'),500);}
+function pumpCycle(){flashATP();for(let i=0;i<3;i++)spawn('pathNaPumpOut',105,'#1d6fb8',null,3.8);for(let i=0;i<2;i++)spawn('pathKPumpIn',105,'#8e44ad',null,4.4);}
+function stageAction(n){mode='step';playing=false;clearParticles();currentStage=n;stageMessage(n);document.getElementById('modeStep').classList.add('primary');document.getElementById('modeContinuous').classList.remove('primary');document.getElementById('playCell').textContent='▶ Reproduzir tempo';
+  document.getElementById('newChannel').classList.toggle('visible',n>=4);document.getElementById('newPump').classList.toggle('visible',n>=4);
+  document.getElementById('gateA').style.transform=n>=4?'translateY(-5px)':'';document.getElementById('gateB').style.transform=n>=4?'translateY(5px)':'';
+  document.getElementById('nucleus').classList.remove('glow');
+  if(n>=2){highlightBinding();}else{document.getElementById('receptorHalo').style.opacity='0';document.getElementById('boundLigand').style.opacity='0';}
+  if(n===1){spawn('pathBloodToMR',120,'#f1c40f',highlightBinding,5);}
+  if(n===2){startReceptorToNucleus(false);}
+  if(n===3){document.getElementById('newChannel').classList.remove('visible');document.getElementById('newPump').classList.remove('visible');document.getElementById('nucleus').classList.add('glow');spawn('pathMRNucleusToRibosome',105,'#198754',()=>{document.getElementById('nucleus').classList.remove('glow');addVesicles();},4);}
+  if(n===5){for(let i=0;i<4;i++)spawn('pathNaApical',100,'#1d6fb8',null,3.6);pumpCycle();for(let i=0;i<3;i++)spawn('pathKApical',92,'#d94841',null,4);}
+}
+function startContinuous(){mode='continuous';playing=true;clearParticles();lastSimT=simT;document.getElementById('modeStep').classList.remove('primary');document.getElementById('modeContinuous').classList.add('primary');document.getElementById('playCell').textContent='⏸ Pausar tempo';stageMessage(1);if(reducedMotion){playing=false;document.getElementById('playCell').textContent='▶ Reproduzir tempo';document.getElementById('stageText').textContent='Movimento contínuo pausado porque o dispositivo indica preferência por movimento reduzido. Use os botões 1–5 para percorrer as etapas.';}}
+function poisson(rate,dt){return Math.random() < 1-Math.exp(-Math.max(0,rate)*Math.max(0,dt));}
+function continuousEvents(dtReal,dtModel,ald,k){channels=clamp(sampleChannelDensity(simT),0.05,4.0);const baselineAld=Math.max(0.05,D.baseline.Ald||1);const mod=clamp(channels/baselineAld-1,-1,1);document.getElementById('gateA').style.transform='translateY('+(-4*mod)+'px)';document.getElementById('gateB').style.transform='translateY('+(4*mod)+'px)';if(reducedMotion)return;
+  if(poisson(0.34*clamp(ald,0.05,3.0),dtReal)){spawn('pathBloodToMR',115,'#f1c40f',()=>{highlightBinding();startReceptorToNucleus(true);window.setTimeout(()=>{document.getElementById('receptorHalo').style.opacity='0.2';document.getElementById('boundLigand').style.opacity='0';},500);},4);}
+  if(poisson(0.55*channels,dtReal)){spawn('pathNaApical',105,'#1d6fb8',null,3.5);}
+  if(poisson(0.27*channels*clamp(k,0.05,3.0),dtReal)){spawn('pathKApical',90,'#d94841',null,3.8);}
+  if(poisson(0.22*channels,dtReal))pumpCycle();
+}
+function updateReadouts(){const ald=sample(ALD,simT),k=sample(K,simT);document.getElementById('timeReadout').textContent=simT<0?'basal':(D.is_chronic?(simT/1440).toFixed(2)+' dias':simT.toFixed(1)+' min');document.getElementById('valuesReadout').textContent='Ald = '+ald.toFixed(2)+' · K⁺ = '+k.toFixed(2)+' · canais (didático) = '+channels.toFixed(2);timeSeek.value=String(simT);}
+document.querySelectorAll('.stage').forEach(b=>b.addEventListener('click',()=>stageAction(Number(b.dataset.stage))));
+document.getElementById('modeStep').addEventListener('click',()=>{mode='step';playing=false;clearParticles();document.getElementById('modeStep').classList.add('primary');document.getElementById('modeContinuous').classList.remove('primary');document.getElementById('playCell').textContent='▶ Reproduzir tempo';stageMessage(currentStage);});
+document.getElementById('modeContinuous').addEventListener('click',startContinuous);
+document.getElementById('playCell').addEventListener('click',()=>{if(mode!=='continuous')startContinuous();else{playing=!playing;document.getElementById('playCell').textContent=playing?'⏸ Pausar tempo':'▶ Reproduzir tempo';lastSimT=simT;}});
+document.getElementById('resetCell').addEventListener('click',()=>{clearParticles();document.getElementById('receptorHalo').style.opacity='0';document.getElementById('boundLigand').style.opacity='0';document.getElementById('newChannel').classList.remove('visible');document.getElementById('newPump').classList.remove('visible');document.getElementById('gateA').style.transform='';document.getElementById('gateB').style.transform='';document.getElementById('nucleus').classList.remove('glow');channels=Math.max(0.05,D.baseline.Ald||1);stageAction(1);});
+timeSeek.addEventListener('input',()=>{simT=Number(timeSeek.value);lastSimT=simT;channels=clamp(sampleChannelDensity(simT),0.05,4.0);updateReadouts();});
+function frame(ts){if(lastFrame===null)lastFrame=ts;let dtReal=Math.min((ts-lastFrame)/1000,0.05);lastFrame=ts;let dtModel=0;if(playing){const factor=D.is_chronic?96.0:1.0;simT+=dtReal*factor;if(simT>=tMax){simT=tMax;playing=false;document.getElementById('playCell').textContent='▶ Reproduzir tempo';}dtModel=Math.max(0,simT-lastSimT);const ald=sample(ALD,simT),k=sample(K,simT);continuousEvents(dtReal,dtModel,ald,k);}lastSimT=simT;stepParticles(dtReal);updateReadouts();requestAnimationFrame(frame);}
+if(reducedMotion){document.getElementById('stageText').textContent='Preferência por movimento reduzido detectada. Use os botões 1–5 para explorar cada etapa; a simulação contínua começa pausada.';stageMessage(1);}
+else{stageAction(1);}
+requestAnimationFrame(frame);
+</script></body></html>
+"""
+
+cell_source = data_b if (diagram_regime == "B" and data_b is not None) else data
+cell_data = {
+    "t": cell_source["t"],
+    "Ald": cell_source["Ald"],
+    "K": cell_source["K"],
+    "baseline": cell_source["baseline"],
+    "label": label_b if (diagram_regime == "B" and data_b is not None) else label_a,
+    "is_chronic": bool(is_chronic),
+}
+cell_payload = json.dumps(cell_data, separators=(",", ":"))
 html = TEMPLATE.replace("__DATA__", payload)
-st.iframe(html, width="stretch", height=1470, alt="Diagrama e gráficos animados do simulador didático do SRAA")
+cell_html = CELL_TEMPLATE.replace("__CELL_DATA__", cell_payload)
+model_tab, aldosterone_tab = st.tabs(["📈 SRAA e comparação de regimes", "🧫 Efeitos celulares da aldosterona"])
+with model_tab:
+    st.iframe(html, width="stretch", height=1550 if compare_enabled else 1470, alt="Diagrama e gráficos animados do simulador didático do SRAA")
+with aldosterone_tab:
+    st.markdown(
+        "A animação abaixo reutiliza as séries de **aldosterona (Ald)** e **potássio (K⁺)** do regime selecionado. "
+        "O mecanismo de transcrição, síntese e inserção de proteínas é uma ilustração; o atraso de canais é didático e ainda não é uma variável das EDOs."
+    )
+    st.iframe(cell_html, width="stretch", height=900, alt="Animação didática da ação da aldosterona numa célula epitelial do néfron distal")
+
+if compare_enabled and data_b is not None:
+    st.subheader("Resumo quantitativo da comparação")
+    st.caption(
+        "Cada sequência mostra pré-perturbação → ponto com maior desvio percentual absoluto do próprio basal → final. "
+        "As porcentagens entre parênteses são relativas ao basal específico de A ou B. Δ final = B − A nos valores exibidos. "
+        "O tempo de recuperação é o primeiro instante em que a PAM alcança 95% do basal próprio; é um critério descritivo, não clínico."
+    )
+    summary_variables = [
+        ("PAM", "PAM", "mmHg"),
+        ("GFR", "TFG estimada", "mL/min/1,73 m²"),
+        ("R", "Renina", "índice"),
+        ("A2", "Angiotensina II", "índice"),
+        ("AT1", "Atividade efetiva AT1", "índice"),
+        ("AT2", "Atividade efetiva AT2", "índice"),
+        ("Ald", "Aldosterona", "índice"),
+        ("BK", "Bradicinina", "índice"),
+        ("V", "Volume relativo", "índice"),
+        ("Na", "Sódio corporal", "índice"),
+        ("K", "Potássio plasmático", "índice"),
+    ]
+    rows = []
+    for key, label, unit in summary_variables:
+        rows.append({
+            "Variável": label,
+            "Unidade": unit,
+            f"A — {label_a}": sequence_summary(data, key),
+            f"B — {label_b}": sequence_summary(data_b, key),
+            "Δ final (B − A)": final_delta_text(data, data_b, key),
+        })
+    st.dataframe(rows, hide_index=True, width="stretch")
+
+    rec_a = format_recovery(pam_recovery_time(data), is_chronic)
+    rec_b = format_recovery(pam_recovery_time(data_b), is_chronic)
+    col_a, col_b = st.columns(2)
+    with col_a:
+        st.metric("Tempo de A até 95% da própria PAM basal", rec_a)
+    with col_b:
+        st.metric("Tempo de B até 95% da própria PAM basal", rec_b)
+
+    with st.expander("Teste automático das assinaturas farmacológicas IECA × BRA", expanded=False):
+        st.write(
+            "Executa um cenário padronizado de 20% de redução inicial do volume relativo por 60 minutos. "
+            "O teste verifica as assinaturas didáticas: IECA → Ang II < 1 e bradicinina > 1; "
+            "BRA → Ang II > 1, bradicinina ≈ 1 e AT2 > 1."
+        )
+        if st.button("Executar teste IECA × BRA", key="run_signature_test"):
+            with st.spinner("Executando os dois cenários de referência..."):
+                test_ieca = simulate(
+                    drop=0.20, t_end=60.0, is_chronic=False,
+                    drugs={"ace": 1.0, "arb": 0.0, "dri": 0.0}, params=PARAMS,
+                )
+                test_bra = simulate(
+                    drop=0.20, t_end=60.0, is_chronic=False,
+                    drugs={"ace": 0.0, "arb": 1.0, "dri": 0.0}, params=PARAMS,
+                )
+            same_grid = test_ieca["t"] == test_bra["t"]
+            checks = {
+                "Vetor de tempo idêntico": same_grid,
+                "IECA: Ang II < 1 aos 60 min": test_ieca["A2"][-1] < 1.0,
+                "IECA: bradicinina > 1 aos 60 min": test_ieca["BK"][-1] > 1.0,
+                "BRA: Ang II > 1 aos 60 min": test_bra["A2"][-1] > 1.0,
+                "BRA: bradicinina ≈ 1 aos 60 min": abs(test_bra["BK"][-1] - 1.0) < 1e-3,
+                "BRA: AT2 > 1 aos 60 min": test_bra["AT2"][-1] > 1.0,
+            }
+            st.dataframe(
+                [{"Verificação": name, "Resultado": "OK" if passed else "FALHOU"} for name, passed in checks.items()],
+                hide_index=True, width="stretch",
+            )
+            if all(checks.values()):
+                st.success("Todas as assinaturas didáticas verificadas neste cenário passaram.")
+            else:
+                st.warning("Uma ou mais assinaturas não passaram. Reveja os parâmetros antes de interpretar o contraste.")
 
 # =====================================================================
 # 4. DIAGNÓSTICOS MATEMÁTICOS E LIMITAÇÕES
