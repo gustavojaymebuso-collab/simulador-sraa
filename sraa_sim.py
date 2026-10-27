@@ -19,7 +19,7 @@ import streamlit as st
 from scipy.integrate import solve_ivp
 from scipy.optimize import least_squares
 
-st.set_page_config(page_title="Simulador didático do SRAA v11", layout="wide")
+st.set_page_config(page_title="imulador didático do SRAA", layout="wide")
 
 # =====================================================================
 # 1. PARÂMETROS E CONVENÇÕES
@@ -474,7 +474,7 @@ def simulate(drop=0.20, t_end=60.0, is_chronic=False, drugs=None, params=None):
 # =====================================================================
 # 2. INTERFACE STREAMLIT
 # =====================================================================
-st.title("🫘 Simulador didático do SRAA — v11 (comparação e transporte celular)")
+st.title("🫘🫘 imulador didático do SRAA")
 st.caption(
     "Modelo qualitativo de hemodinâmica, cascata hormonal, feedback e efeitos farmacológicos. "
     "Não se destina a diagnóstico ou decisão terapêutica."
@@ -776,47 +776,47 @@ payload = json.dumps(payload_data, separators=(",", ":"))
 # =====================================================================
 TEMPLATE = r"""
 <!DOCTYPE html><html lang="pt-BR"><head><meta charset="utf-8"><style>
-:root{--ink:#1b2b4b;--muted:#7a8ba3;--line:#e3e9f2;}
+:root{--ink:#172554;--muted:#526581;--line:#d5deea;}
 *{box-sizing:border-box;}
 body{margin:0;background:#fff;color:var(--ink);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;}
 .wrap{padding:6px 12px 8px;position:relative;}
 .top{display:flex;align-items:center;gap:16px;margin-bottom:2px;}
-.pam{font-size:30px;font-weight:800;color:#c0392b;line-height:1;min-width:190px;}
-.pam small{display:block;font-size:10.5px;font-weight:600;color:var(--muted);letter-spacing:.07em;text-transform:uppercase;margin-top:3px;}
+.pam{font-size:32px;font-weight:800;color:#c0392b;line-height:1;min-width:190px;}
+.pam small{display:block;font-size:12px;font-weight:600;color:var(--muted);letter-spacing:.07em;text-transform:uppercase;margin-top:3px;}
 .gw{flex:1;position:relative;height:16px;}
-.gauge{position:absolute;inset:0;background:linear-gradient(90deg,#e74c3c 0%,#f1c40f 50%,#2ecc71 100%);border-radius:8px;overflow:hidden;}
+.gauge{position:absolute;inset:0;background:linear-gradient(90deg,#e74c3c 0%,#f1c40f 50%,#16a34a 100%);border-radius:8px;overflow:hidden;}
 .gauge>i{position:absolute;right:0;top:0;bottom:0;width:25%;border-radius:0 8px 8px 0;background:#eef2f8;transition:width .08s linear;}
-.clock{font-variant-numeric:tabular-nums;font-size:15px;font-weight:700;color:#4a5b78;min-width:120px;text-align:right;}
+.clock{font-variant-numeric:tabular-nums;font-size:16px;font-weight:700;color:#4a5b78;min-width:120px;text-align:right;}
 svg{display:block;width:100%;height:auto;}
 .bg{stroke:#dbe4f0;stroke-width:2;}
-.ttl{font-size:14px;font-weight:700;fill:#22344f;text-anchor:middle;}
-.sub{font-size:10.5px;fill:#7a8ba3;text-anchor:middle;}
-.val{font-size:11.5px;font-weight:700;text-anchor:middle;font-variant-numeric:tabular-nums;}
+.ttl{font-size:15px;font-weight:700;fill:#22344f;text-anchor:middle;}
+.sub{font-size:12px;fill:#7a8ba3;text-anchor:middle;}
+.val{font-size:13px;font-weight:700;text-anchor:middle;font-variant-numeric:tabular-nums;}
 .flow{fill:none;stroke-width:4;stroke-linecap:round;stroke-dasharray:9 11;}
 .charts{display:flex;gap:10px;margin-top:10px;flex-wrap:wrap;}
 .card{flex:1;min-width:280px;background:#fbfcfe;border:1px solid var(--line);border-radius:12px;padding:6px 8px 4px;}
-.card h4{margin:0 0 2px 4px;font-size:10.5px;letter-spacing:.04em;text-transform:uppercase;color:var(--muted);}
-.card .hint{font-size:10px;color:#9aabc2;margin:0 0 1px 4px;}
+.card h4{margin:0 0 3px 4px;font-size:12px;letter-spacing:.04em;text-transform:uppercase;color:var(--muted);}
+.card .hint{font-size:11px;color:#9aabc2;margin:0 0 1px 4px;}
 canvas{display:block;width:100%;height:auto;}
 .bar{display:flex;align-items:center;gap:10px;margin-top:8px;flex-wrap:wrap;}
-button{border:1px solid #d3dceb;background:#fff;color:#22344f;font-weight:600;font-size:13px;padding:7px 14px;border-radius:9px;cursor:pointer;}
+button{border:1px solid #cbd5e1;background:#fff;color:#172554;font-weight:650;font-size:14px;padding:7px 14px;border-radius:9px;cursor:pointer;}
 button:hover{background:#f2f6fd;}
-button.pri{background:#1d6fb8;border-color:#1d6fb8;color:#fff;}
+button.pri{background:#0077ff;border-color:#0077ff;color:#fff;}
 button.pri:hover{background:#185a95;}
 .speed{display:flex;gap:6px;}
 .speed button{padding:6px 10px;}
-.speed button.on{background:#e8f0fb;border-color:#1d6fb8;color:#1d6fb8;}
-.status{font-size:12px;color:#4a5b78;flex:1;text-align:right;font-weight:600;min-width:190px;}
+.speed button.on{background:#e8f0fb;border-color:#0077ff;color:#0077ff;}
+.status{font-size:13px;color:#4a5b78;flex:1;text-align:right;font-weight:600;min-width:190px;}
 #alertBox{position:absolute;top:70px;right:20px;display:flex;flex-direction:column;gap:8px;z-index:100;pointer-events:none;max-width:350px;}
-.alert{background:#ffe5e5;border-left:6px solid #d32f2f;color:#b71c1c;padding:9px 12px;border-radius:6px;font-weight:700;font-size:12px;box-shadow:0 4px 12px rgba(0,0,0,0.15);display:none;}
+.alert{background:#ffe5e5;border-left:6px solid #dc2626;color:#b71c1c;padding:10px 13px;border-radius:6px;font-weight:700;font-size:13px;box-shadow:0 4px 12px rgba(0,0,0,0.15);display:none;}
 .alert.warning{background:#fff3e0;border-color:#f57c00;color:#e65100;}
-.note{font-size:11px;color:#7a8ba3;margin:7px 2px 0;line-height:1.4;}
+.note{font-size:12px;color:#7a8ba3;margin:7px 2px 0;line-height:1.4;}
 .comparison-legend{border:1px solid #dbe4f0;background:#f8fafc;border-radius:10px;padding:8px 12px;margin-top:10px;display:flex;gap:12px;align-items:flex-start;flex-wrap:wrap;}
 .legend-items{display:flex;gap:18px;align-items:center;flex-wrap:wrap;}
-.legend-item{display:inline-flex;gap:7px;align-items:center;font-size:12px;color:#334155;}
+.legend-item{display:inline-flex;gap:7px;align-items:center;font-size:13px;color:#334155;}
 .line-sample{display:inline-block;width:34px;height:0;border-top:3px solid #334155;}
 .line-sample.dashed{border-top-style:dashed;}
-.comparison-hint{flex-basis:100%;font-size:11px;color:#64748b;line-height:1.4;}
+.comparison-hint{flex-basis:100%;font-size:12px;color:#64748b;line-height:1.4;}
 </style></head><body><div class="wrap">
 <div id="alertBox">
   <div id="alertCough" class="alert warning">⚠ Índice de bradicinina elevado neste modelo (não é previsão de tosse individual).</div>
@@ -834,45 +834,45 @@ button.pri:hover{background:#185a95;}
     </marker>
   </defs>
   <g id="flows">
-    <line class="flow" id="f_ren" x1="180" y1="72" x2="240" y2="72" stroke="#7b52ab" marker-end="url(#flowArrow)"/>
-    <line class="flow" id="f_a1" x1="380" y1="72" x2="440" y2="72" stroke="#2a9d8f" marker-end="url(#flowArrow)"/>
-    <line class="flow" id="f_a2" x1="580" y1="72" x2="640" y2="72" stroke="#e76f51" marker-end="url(#flowArrow)"/>
-    <line class="flow" id="f_ald" x1="755" y1="115" x2="850" y2="239" stroke="#1d6fb8" marker-end="url(#flowArrow)"/>
-    <polyline class="flow" id="f_at1" points="570,116 600,130 610,190 660,239" stroke="#e76f51" marker-end="url(#flowArrow)"/>
-    <line class="flow" id="f_at2" x1="535" y1="116" x2="760" y2="239" stroke="#f39c12" marker-end="url(#flowArrow)"/>
-    <line class="flow" id="f_bk" x1="580" y1="185" x2="619" y2="278" stroke="#9b59b6" marker-end="url(#flowArrow)"/>
-    <line class="flow" id="f_adh" x1="880" y1="116" x2="920" y2="239" stroke="#2ecc71" marker-end="url(#flowArrow)"/>
+    <line class="flow" id="f_ren" x1="180" y1="72" x2="240" y2="72" stroke="#7c3aed" marker-end="url(#flowArrow)"/>
+    <line class="flow" id="f_a1" x1="380" y1="72" x2="440" y2="72" stroke="#009e73" marker-end="url(#flowArrow)"/>
+    <line class="flow" id="f_a2" x1="580" y1="72" x2="640" y2="72" stroke="#f04e37" marker-end="url(#flowArrow)"/>
+    <line class="flow" id="f_ald" x1="755" y1="115" x2="850" y2="239" stroke="#d81b60" marker-end="url(#flowArrow)"/>
+    <polyline class="flow" id="f_at1" points="570,116 600,130 610,190 660,239" stroke="#f04e37" marker-end="url(#flowArrow)"/>
+    <line class="flow" id="f_at2" x1="535" y1="116" x2="760" y2="239" stroke="#f59e0b" marker-end="url(#flowArrow)"/>
+    <line class="flow" id="f_bk" x1="580" y1="185" x2="619" y2="278" stroke="#9333ea" marker-end="url(#flowArrow)"/>
+    <line class="flow" id="f_adh" x1="880" y1="116" x2="920" y2="239" stroke="#16a34a" marker-end="url(#flowArrow)"/>
   </g>
   <g id="bxR"><rect class="bg" x="20" y="28" width="160" height="88" rx="14" fill="#f7f9fc"/>
     <text class="ttl" x="100" y="56">Rim</text><text class="sub" x="100" y="73">atividade da renina</text>
-    <text class="val" x="100" y="98" id="vR" fill="#7b52ab">renina 1.00</text></g>
+    <text class="val" x="100" y="98" id="vR" fill="#7c3aed">renina 1.00</text></g>
   <g id="bxF"><rect class="bg" x="240" y="28" width="140" height="88" rx="14" fill="#f7f9fc"/>
     <text class="ttl" x="310" y="56">Angiotensina I</text><text class="sub" x="310" y="73">precursor</text>
-    <text class="val" x="310" y="98" id="vA1" fill="#2a9d8f">Ang I 1.00</text></g>
+    <text class="val" x="310" y="98" id="vA1" fill="#009e73">Ang I 1.00</text></g>
   <g id="bxP"><rect class="bg" x="440" y="28" width="140" height="88" rx="14" fill="#f7f9fc"/>
     <text class="ttl" x="510" y="56">Angiotensina II</text><text class="sub" x="510" y="73">formação via ECA</text>
-    <text class="val" x="510" y="98" id="vA2" fill="#e76f51">Ang II 1.00</text></g>
+    <text class="val" x="510" y="98" id="vA2" fill="#f04e37">Ang II 1.00</text></g>
   <g id="bxA"><rect class="bg" x="640" y="28" width="140" height="88" rx="14" fill="#f7f9fc"/>
     <text class="ttl" x="710" y="56">Adrenal</text><text class="sub" x="710" y="73">aldosterona</text>
-    <text class="val" x="710" y="98" id="vAld" fill="#1d6fb8">Ald 1.00</text></g>
+    <text class="val" x="710" y="98" id="vAld" fill="#d81b60">Ald 1.00</text></g>
   <g id="bxH"><rect class="bg" x="840" y="28" width="140" height="88" rx="14" fill="#f7f9fc"/>
     <text class="ttl" x="910" y="56">Neuro-hipófise</text><text class="sub" x="910" y="73">ADH / vasopressina</text>
-    <text class="val" x="910" y="98" id="vADH" fill="#2ecc71">ADH 1.00</text></g>
+    <text class="val" x="910" y="98" id="vADH" fill="#16a34a">ADH 1.00</text></g>
   <g id="bxV"><rect class="bg" x="620" y="240" width="180" height="110" rx="14" fill="#f7f9fc"/>
     <text class="ttl" x="710" y="265" font-size="13">Vasos / receptores</text>
-    <rect id="lumen" x="645" y="280" width="130" height="34" rx="10" fill="#f7d9d3" stroke="#e76f51" stroke-width="2"/>
-    <text class="val" x="660" y="330" id="vAT1" fill="#e76f51">AT1 1.00</text>
-    <text class="val" x="760" y="330" id="vAT2" fill="#f39c12">AT2 1.00</text></g>
+    <rect id="lumen" x="645" y="280" width="130" height="34" rx="10" fill="#f7d9d3" stroke="#f04e37" stroke-width="2"/>
+    <text class="val" x="660" y="330" id="vAT1" fill="#f04e37">AT1 1.00</text>
+    <text class="val" x="760" y="330" id="vAT2" fill="#f59e0b">AT2 1.00</text></g>
   <g id="bxT"><rect class="bg" x="820" y="240" width="160" height="110" rx="14" fill="#f7f9fc"/>
     <text class="ttl" x="900" y="261" font-size="12">Balanço hidroeletrolítico</text>
     <text class="sub" x="900" y="276">Na corporal / K⁺ plasmático</text>
     <rect x="835" y="280" width="130" height="26" rx="13" fill="#e6eefb" stroke="#c3d5ee"/>
     <g id="dots"></g>
-    <text class="val" x="865" y="330" id="vNa" fill="#1d6fb8">Na 1.00</text>
-    <text class="val" x="935" y="330" id="vK" fill="#d32f2f">K 1.00</text></g>
+    <text class="val" x="865" y="330" id="vNa" fill="#006dff">Na 1.00</text>
+    <text class="val" x="935" y="330" id="vK" fill="#dc2626">K 1.00</text></g>
   <g id="bxK"><rect class="bg" x="440" y="150" width="140" height="70" rx="14" fill="#f7f9fc"/>
     <text class="ttl" x="510" y="175" font-size="13">Bradicinina</text>
-    <text class="val" x="510" y="200" id="vBK" fill="#9b59b6">BK 1.00</text></g>
+    <text class="val" x="510" y="200" id="vBK" fill="#9333ea">BK 1.00</text></g>
 </svg>
 <div class="comparison-legend" id="comparisonLegend" style="display:none">
   <div class="legend-items">
@@ -1011,15 +1011,15 @@ function chartSeries(key,name,color,axis='left'){
 const ch1=makeChart(document.getElementById('c1'),{hasRightAxis:true,legend:true,series:[
   chartSeries('PAM','PAM','#c0392b','left'),chartSeries('GFR','TFG estimada','#2980b9','right')]});
 const cascadeSeries=IS_COMPARE
-  ? [chartSeries('R','Renina','#7b52ab'),chartSeries('A2','Ang II','#e76f51')]
-  : [chartSeries('R','Renina','#7b52ab'),chartSeries('A1','Ang I','#2a9d8f'),chartSeries('A2','Ang II','#e76f51')];
+  ? [chartSeries('R','Renina','#7c3aed'),chartSeries('A2','Ang II','#f04e37')]
+  : [chartSeries('R','Renina','#7c3aed'),chartSeries('A1','Ang I','#009e73'),chartSeries('A2','Ang II','#f04e37')];
 const ch2=makeChart(document.getElementById('c2'),{hasRightAxis:false,legend:true,series:cascadeSeries});
 const ch3=makeChart(document.getElementById('c3'),{hasRightAxis:false,legend:true,series:[
-  chartSeries('AT1','AT1','#d35400'),chartSeries('AT2','AT2','#f39c12')]});
+  chartSeries('AT1','AT1','#d35400'),chartSeries('AT2','AT2','#f59e0b')]});
 const ch4=makeChart(document.getElementById('c4'),{hasRightAxis:true,legend:true,series:[
-  chartSeries('Ald','Aldosterona','#1d6fb8'),chartSeries('V','Volume','#8e44ad'),chartSeries('BK','Bradicinina','#9b59b6','right')]});
+  chartSeries('Ald','Aldosterona','#d81b60'),chartSeries('V','Volume','#8e44ad'),chartSeries('BK','Bradicinina','#9333ea','right')]});
 const ch5=makeChart(document.getElementById('c5'),{hasRightAxis:false,legend:true,series:[
-  chartSeries('Na','Na corporal','#1d6fb8'),chartSeries('K','K plasmático','#d32f2f')]});
+  chartSeries('Na','Na corporal','#006dff'),chartSeries('K','K plasmático','#dc2626')]});
 function drawMarker(ctx,x,y,color,hollow){
   ctx.beginPath();ctx.arc(x,y,hollow?4.5:4,0,Math.PI*2);
   ctx.fillStyle=hollow?'#ffffff':color;ctx.fill();ctx.strokeStyle=hollow?color:'#ffffff';ctx.lineWidth=hollow?2:1.5;ctx.stroke();
@@ -1050,7 +1050,7 @@ function h2r(h){return [parseInt(h.slice(1,3),16),parseInt(h.slice(3,5),16),pars
 function mix(a,b,f){const A=h2r(a),B=h2r(b);return 'rgb('+Math.round(lerp(A[0],B[0],f))+','+Math.round(lerp(A[1],B[1],f))+','+Math.round(lerp(A[2],B[2],f))+')';}
 function setBox(id,n,pale,sat){const rect=document.querySelector('#'+id+' .bg');if(rect)rect.setAttribute('fill',mix(pale,sat,n));}
 const dg=document.getElementById('dots'),dots=[];
-for(let i=0;i<6;i++){const el=document.createElementNS('http://www.w3.org/2000/svg','circle');el.setAttribute('r',4);el.setAttribute('cy',293);el.setAttribute('fill','#1d6fb8');dg.appendChild(el);dots.push({el,x:835+i*22});}
+for(let i=0;i<6;i++){const el=document.createElementNS('http://www.w3.org/2000/svg','circle');el.setAttribute('r',4);el.setAttribute('cy',293);el.setAttribute('fill','#006dff');dg.appendChild(el);dots.push({el,x:835+i*22});}
 const off={f_ren:0,f_a1:0,f_a2:0,f_ald:0,f_at1:0,f_at2:0,f_bk:0,f_adh:0};
 let simT=T0,playing=true,speed=1,lastTs=null,coughShown=false,kShown=false;
 function render(dt){
@@ -1062,14 +1062,14 @@ function render(dt){
   let timeStr=IS_CHRONIC?(Math.max(simT,0)/1440).toFixed(2)+' dias':Math.max(simT,0).toFixed(1)+' min';
   if(simT<0)timeStr='pré-perturbação';
   document.getElementById('clock').textContent='t = '+timeStr;
-  setBox('bxR',deviationScale(r,BASE.R),'#ece4f7','#7b52ab');
-  setBox('bxF',deviationScale(a1,BASE.A1),'#dff3f0','#2a9d8f');
-  setBox('bxP',deviationScale(a2,BASE.A2),'#fbe3dc','#e76f51');
-  setBox('bxA',deviationScale(al,BASE.Ald),'#dce9f8','#1d6fb8');
-  setBox('bxH',deviationScale(adh,BASE.ADH),'#e0f5e6','#2ecc71');
-  setBox('bxK',deviationScale(bk,BASE.BK),'#f4e6f7','#9b59b6');
-  setBox('bxV',Math.max(deviationScale(at1,BASE_OUT.AT1),deviationScale(at2,BASE_OUT.AT2)),'#fbe3dc','#e76f51');
-  setBox('bxT',Math.max(deviationScale(na,BASE.Na_body),deviationScale(k,BASE.K_plasma)),'#e6eefb','#1d6fb8');
+  setBox('bxR',deviationScale(r,BASE.R),'#ece4f7','#7c3aed');
+  setBox('bxF',deviationScale(a1,BASE.A1),'#dff3f0','#009e73');
+  setBox('bxP',deviationScale(a2,BASE.A2),'#fbe3dc','#f04e37');
+  setBox('bxA',deviationScale(al,BASE.Ald),'#dce9f8','#d81b60');
+  setBox('bxH',deviationScale(adh,BASE.ADH),'#e0f5e6','#16a34a');
+  setBox('bxK',deviationScale(bk,BASE.BK),'#f4e6f7','#9333ea');
+  setBox('bxV',Math.max(deviationScale(at1,BASE_OUT.AT1),deviationScale(at2,BASE_OUT.AT2)),'#fbe3dc','#f04e37');
+  setBox('bxT',Math.max(deviationScale(na,BASE.Na_body),deviationScale(k,BASE.K_plasma)),'#e6eefb','#006dff');
   document.getElementById('vR').textContent='renina '+r.toFixed(2);
   document.getElementById('vA1').textContent='Ang I '+a1.toFixed(2);
   document.getElementById('vA2').textContent='Ang II '+a2.toFixed(2);
@@ -1122,44 +1122,44 @@ document.querySelectorAll('.speed button').forEach(b=>{b.onclick=()=>{document.q
 CELL_TEMPLATE = r"""
 <!DOCTYPE html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
 <style>
-:root{--ink:#1b2b4b;--muted:#64748b;--line:#dbe4f0;--blue:#1d6fb8;--yellow:#f1c40f;--red:#d94841;--purple:#8e44ad;--green:#198754;}
+:root{--ink:#172554;--muted:#526581;--line:#cbd5e1;--blue:#0077ff;--yellow:#ffb703;--red:#f94144;--purple:#7b2cbf;--green:#00a878;--ald:#f72585;}
 *{box-sizing:border-box} body{margin:0;background:#fff;color:var(--ink);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif}
-.wrap{padding:10px 12px 14px}.header{display:flex;align-items:flex-start;gap:12px;justify-content:space-between;flex-wrap:wrap}
-h2{margin:0 0 4px;font-size:21px}.sub{font-size:12px;color:var(--muted);line-height:1.45;margin:0 0 10px}
-.pill{border:1px solid #dbeafe;background:#eff6ff;border-radius:999px;padding:5px 10px;font-size:12px;color:#1e40af;white-space:nowrap}
+.wrap{padding:12px 14px 16px}.header{display:flex;align-items:flex-start;gap:12px;justify-content:space-between;flex-wrap:wrap}
+h2{margin:0 0 5px;font-size:24px;line-height:1.2}.sub{font-size:14px;color:var(--muted);line-height:1.5;margin:0 0 12px}
+.pill{border:1px solid #bfdbfe;background:#eff6ff;border-radius:999px;padding:6px 11px;font-size:13px;color:#1e40af;white-space:nowrap}
 .controls{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin:7px 0}
-button{border:1px solid #cbd5e1;background:#fff;color:#1e293b;border-radius:8px;padding:7px 10px;font-size:12px;font-weight:650;cursor:pointer}
-button:hover{background:#f1f5f9}button.primary,.stage.on{background:#1d6fb8;color:#fff;border-color:#1d6fb8}
+button{border:1px solid #cbd5e1;background:#fff;color:#172554;border-radius:8px;padding:8px 12px;font-size:14px;font-weight:650;cursor:pointer}
+button:hover{background:#eef6ff}button.primary,.stage.on{background:#0077ff;color:#fff;border-color:#0077ff}
 button:focus-visible,input:focus-visible{outline:3px solid #93c5fd;outline-offset:2px}
-#stageButtons{display:flex;gap:5px;flex-wrap:wrap}.stage{min-width:35px}
-.statusbox{border:1px solid var(--line);background:#f8fafc;border-radius:9px;padding:9px 11px;margin:8px 0;font-size:12px;line-height:1.45}
-.timebar{display:flex;gap:10px;align-items:center;flex-wrap:wrap;font-size:12px;color:var(--muted);margin:8px 0}
-input[type=range]{flex:1;min-width:180px;accent-color:#1d6fb8}
+#stageButtons{display:flex;gap:7px;flex-wrap:wrap}.stage{min-width:42px}
+.statusbox{border:1px solid var(--line);border-left:5px solid var(--ald);background:#fff7fb;border-radius:10px;padding:11px 14px;margin:10px 0;font-size:14px;line-height:1.5;min-height:58px}
+.timebar{display:flex;gap:11px;align-items:center;flex-wrap:wrap;font-size:14px;color:var(--muted);margin:10px 0}
+input[type=range]{flex:1;min-width:180px;accent-color:#0077ff;height:22px}
 svg{width:100%;height:auto;display:block;background:#fff;border:1px solid var(--line);border-radius:12px}
-.regionLabel{font-size:15px;font-weight:700;fill:#334155;text-anchor:middle}.smallLabel{font-size:12px;fill:#475569;text-anchor:middle}.tinyLabel{font-size:10px;fill:#64748b;text-anchor:middle}
-.guide{fill:none;stroke:#94a3b8;stroke-width:2;stroke-dasharray:5 6;opacity:.6}.particle{pointer-events:none}
-#cellBody{fill:#e5f4fb;stroke:#4c9dbb;stroke-width:3} .membrane{fill:#9bd2e6;stroke:#3985a4;stroke-width:1.4}
-.protein{stroke:#0f5f8f;stroke-width:2;fill:#60a5c9}.pump{stroke:#0f5f8f;stroke-width:2;fill:#7fc4dd}
-#nucleus{fill:#d8dcf8;stroke:#7c83c9;stroke-width:2}#dna{fill:none;stroke:#6d71bd;stroke-width:2.4;stroke-linecap:round}
-#receptor{fill:#d7c6f1;stroke:#7e57a3;stroke-width:2.2}#receptorHalo{fill:#f4eaff;stroke:#9b59b6;stroke-width:2;opacity:0}
-#gateA,#gateB{stroke:#0f5f8f;stroke-width:4;stroke-linecap:round;transition:transform .35s ease}
-#newChannel,#newPump{opacity:.22;transition:opacity .45s ease,filter .45s ease}#newChannel.visible,#newPump.visible{opacity:1;filter:drop-shadow(0 0 4px #61a5cf)}
-#nucleus.glow{filter:drop-shadow(0 0 8px #9b9de8)}#gateA,#gateB{transform-box:fill-box;transform-origin:center}#atpFlash{opacity:0;fill:#facc15;stroke:#ca8a04;stroke-width:2}#atpFlash.on{opacity:1}
-#naFlux,#kFlux{opacity:.75}.legend{display:flex;gap:12px;flex-wrap:wrap;font-size:11px;color:#475569;margin:8px 2px}
-.key{display:inline-flex;align-items:center;gap:5px}.dot{display:inline-block;width:9px;height:9px;border-radius:50%}
-.foot{font-size:11px;color:#64748b;line-height:1.5;margin-top:8px}
+.regionLabel{font-size:17px;font-weight:750;fill:#172554;text-anchor:middle}.smallLabel{font-size:14px;fill:#334155;text-anchor:middle}.tinyLabel{font-size:12px;font-weight:550;fill:#475569;text-anchor:middle}
+.guide{fill:none;stroke:#94a3b8;stroke-width:2;stroke-dasharray:5 6;opacity:.6}.particle{pointer-events:none;filter:drop-shadow(0 0 1px #ffffff)}
+#cellBody{fill:#e0f7ff;stroke:#0891b2;stroke-width:3.5} .membrane{fill:#67e8f9;stroke:#0e7490;stroke-width:1.6}
+.protein{stroke:#075985;stroke-width:2.2;fill:#38bdf8}.pump{stroke:#075985;stroke-width:2.2;fill:#22d3ee}
+#nucleus{fill:#ede9fe;stroke:#7c3aed;stroke-width:2.4}#dna{fill:none;stroke:#6d28d9;stroke-width:2.8;stroke-linecap:round}
+#receptor{fill:#e9d5ff;stroke:#7b2cbf;stroke-width:2.5}#receptorHalo{fill:#fce7f3;stroke:#f72585;stroke-width:2.5;opacity:0}
+#gateA,#gateB{stroke:#075985;stroke-width:4.5;stroke-linecap:round;transition:transform .35s ease}
+#newChannel,#newPump{opacity:.22;transition:opacity .45s ease,filter .45s ease}#newChannel.visible,#newPump.visible{opacity:1;filter:drop-shadow(0 0 5px #0891b2)}
+#nucleus.glow{filter:drop-shadow(0 0 9px #a78bfa)}#gateA,#gateB{transform-box:fill-box;transform-origin:center}#atpFlash{opacity:0;fill:#ffb703;stroke:#c2410c;stroke-width:2.3}#atpFlash.on{opacity:1}
+#naFlux,#kFlux{opacity:.9;transition:opacity .25s ease,stroke-width .25s ease}.legend{display:flex;gap:14px;flex-wrap:wrap;font-size:13px;color:#334155;margin:10px 2px}
+.key{display:inline-flex;align-items:center;gap:7px}.dot{display:inline-block;width:12px;height:12px;border-radius:50%;box-shadow:0 0 0 1px rgba(15,23,42,.14)}
+.foot{font-size:12px;color:#526581;line-height:1.45;margin-top:8px}
 @media(prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}button{scroll-behavior:auto}}
 </style></head><body><div class="wrap">
-<div class="header"><div><h2>Como a aldosterona altera o transporte tubular</h2><p class="sub">Célula epitelial do néfron distal — desenho esquemático próprio. Aldosterona, expressão funcional E e K⁺ vêm das EDOs; as trajetórias moleculares permanecem esquemáticas.</p></div><span class="pill" id="regimeLabel">Regime selecionado</span></div>
+<div class="header"><div><h2>Como a aldosterona altera o transporte tubular</h2><p class="sub">Célula epitelial do túbulo distal — esquema didático. Aldosterona, E (proxy de canais) e K⁺ vêm das EDOs; receptor, transcrição e inserção de proteínas são representações simplificadas.</p></div><span class="pill" id="regimeLabel">Regime selecionado</span></div>
 <div class="controls"><button id="modeStep" class="primary">Passo a passo</button><button id="modeContinuous">Simulação contínua</button><button id="playCell">▶ Reproduzir tempo</button><button id="resetCell">↺ Reiniciar partículas</button></div>
 <div id="stageButtons"><button class="stage on" data-stage="1">1 · Ligação</button><button class="stage" data-stage="2">2 · Transcrição</button><button class="stage" data-stage="3">3 · Síntese</button><button class="stage" data-stage="4">4 · Modulação</button><button class="stage" data-stage="5">5 · Transporte</button></div>
 <div class="timebar"><label for="timeSeek">Tempo simulado:</label><input id="timeSeek" type="range" min="0" max="1" step="any" value="0"><strong id="timeReadout">basal</strong><span id="valuesReadout">Ald = 1,00 · K⁺ = 1,00</span></div>
 <div class="statusbox" id="stageText">1. A aldosterona, um esteroide lipossolúvel, difunde-se a partir do sangue e liga-se a um receptor intracelular. Não atravessa um canal iônico.</div>
 <svg id="cellSvg" viewBox="0 0 1100 560" role="img" aria-label="Esquema animado de uma célula tubular com lúmen à esquerda, sangue à direita, receptor intracelular, núcleo, canais apicais e bomba sódio-potássio basolateral">
  <defs>
-   <marker id="arrBlue" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 Z" fill="#1d6fb8"/></marker>
-   <marker id="arrRed" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 Z" fill="#d94841"/></marker>
-   <marker id="arrPurple" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 Z" fill="#8e44ad"/></marker>
+   <marker id="arrBlue" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 Z" fill="#0077ff"/></marker>
+   <marker id="arrRed" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 Z" fill="#f94144"/></marker>
+   <marker id="arrPurple" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 Z" fill="#7b2cbf"/></marker>
  </defs>
  <!-- Compartimentos -->
  <rect x="18" y="55" width="225" height="450" rx="10" fill="#fff9c9" stroke="#eadf8a"/>
@@ -1175,30 +1175,30 @@ svg{width:100%;height:auto;display:block;background:#fff;border:1px solid var(--
  <path id="dna" d="M450 151 C465 127 480 175 495 151 S525 127 540 151 S570 175 585 151 M450 164 C465 188 480 140 495 164 S525 188 540 164 S570 140 585 164"/>
  <text class="tinyLabel" x="505" y="201">DNA / transcrição</text>
  <!-- Receptor e complexo -->
- <circle id="receptorHalo" cx="663" cy="258" r="26"/><path id="receptor" d="M650 246 L663 258 L650 270 L638 258 Z"/><circle id="boundLigand" cx="663" cy="258" r="5.5" fill="#f1c40f" stroke="#b7791f" stroke-width="1.5" opacity="0"/>
- <text class="tinyLabel" x="672" y="292">Receptor intracelular</text>
+ <circle id="receptorHalo" cx="663" cy="258" r="26"/><path id="receptor" d="M650 246 L663 258 L650 270 L638 258 Z"/><circle id="boundLigand" cx="663" cy="258" r="5.5" fill="#f72585" stroke="#ad1457" stroke-width="1.5" opacity="0"/>
+ <text class="tinyLabel" x="672" y="292">Receptor mineralocorticoide</text>
  <!-- Ribossomo e mRNA -->
- <path id="mrnaLine" d="M506 216 C495 242 510 255 499 279" fill="none" stroke="#198754" stroke-width="3" stroke-dasharray="4 4" opacity=".3"/>
+ <path id="mrnaLine" d="M506 216 C495 242 510 255 499 279" fill="none" stroke="#00a878" stroke-width="3" stroke-dasharray="4 4" opacity=".3"/>
  <ellipse id="ribosome" cx="500" cy="302" rx="30" ry="18" fill="#f0c987" stroke="#bd8433" stroke-width="2"/><path d="M475 301 Q500 284 525 301 Q500 319 475 301" fill="none" stroke="#bd8433" stroke-width="2"/>
  <text class="tinyLabel" x="500" y="333">Ribossomo</text>
  <!-- Canais apicais: um já existente e um novo -->
  <rect x="251" y="350" width="25" height="54" rx="8" class="protein"/><path id="gateA" d="M251 369 L276 369"/><path id="gateB" d="M251 383 L276 383"/>
  <text class="tinyLabel" x="315" y="365" text-anchor="start">Canal de Na⁺</text><text class="tinyLabel" x="315" y="380" text-anchor="start">(ENaC esquemático)</text>
- <g id="newChannel"><rect x="251" y="416" width="25" height="48" rx="8" class="protein"/><path d="M251 433 L276 433 M251 447 L276 447" stroke="#0f5f8f" stroke-width="3"/><text class="tinyLabel" x="315" y="435" text-anchor="start">Canal novo</text></g>
+ <g id="newChannel"><rect x="251" y="416" width="25" height="48" rx="8" class="protein"/><path d="M251 433 L276 433 M251 447 L276 447" stroke="#075985" stroke-width="3"/><text class="tinyLabel" x="315" y="435" text-anchor="start">ENaC adicional</text></g>
  <!-- Bomba Na/K basolateral -->
- <g id="existingPump"><rect x="744" y="345" width="35" height="75" rx="12" class="pump"/><path d="M752 364 L771 364 M752 378 L771 378 M752 392 L771 392" stroke="#0f5f8f" stroke-width="2.4"/><text class="tinyLabel" x="739" y="438" text-anchor="end">Na⁺/K⁺-ATPase</text></g>
- <g id="newPump"><rect x="744" y="430" width="35" height="53" rx="12" class="pump"/><path d="M752 445 L771 445 M752 456 L771 456" stroke="#0f5f8f" stroke-width="2.4"/><text class="tinyLabel" x="717" y="496">Bomba nova</text></g>
+ <g id="existingPump"><rect x="744" y="345" width="35" height="75" rx="12" class="pump"/><path d="M752 364 L771 364 M752 378 L771 378 M752 392 L771 392" stroke="#075985" stroke-width="2.4"/><text class="tinyLabel" x="739" y="438" text-anchor="end">Na⁺/K⁺-ATPase</text></g>
+ <g id="newPump"><rect x="744" y="430" width="35" height="53" rx="12" class="pump"/><path d="M752 445 L771 445 M752 456 L771 456" stroke="#075985" stroke-width="2.4"/><text class="tinyLabel" x="711" y="496">Na⁺/K⁺-ATPase</text></g>
  <circle id="atpFlash" cx="807" cy="373" r="18"/><text x="807" y="377" class="smallLabel" id="atpLabel">ATP → ADP</text>
  <!-- Fluxos visíveis de referência -->
- <path id="naFlux" d="M70 378 C125 378 194 378 247 378" fill="none" stroke="#1d6fb8" stroke-width="3" marker-end="url(#arrBlue)"/>
- <text class="smallLabel" x="140" y="360" fill="#1d6fb8">Na⁺ entra</text>
- <path d="M280 388 C380 388 500 388 742 388" fill="none" stroke="#1d6fb8" stroke-width="1.6" stroke-dasharray="3 5" opacity=".4"/>
- <path d="M690 350 C750 320 830 318 920 318" fill="none" stroke="#1d6fb8" stroke-width="3" marker-end="url(#arrBlue)"/>
- <text class="smallLabel" x="850" y="300" fill="#1d6fb8">3 Na⁺ → sangue</text>
- <path d="M940 415 C875 415 830 405 785 392" fill="none" stroke="#8e44ad" stroke-width="3" marker-end="url(#arrPurple)"/>
- <text class="smallLabel" x="900" y="440" fill="#8e44ad">2 K⁺ entram</text>
- <path id="kFlux" d="M320 466 C270 466 218 460 168 460" fill="none" stroke="#d94841" stroke-width="3" marker-end="url(#arrRed)"/>
- <text class="smallLabel" x="135" y="442" fill="#d94841">K⁺ secretado</text>
+ <path id="naFlux" d="M70 378 C125 378 194 378 291 378" fill="none" stroke="#0077ff" stroke-width="3" marker-end="url(#arrBlue)"/>
+ <text class="smallLabel" x="140" y="356" fill="#0077ff">Na⁺ entra na célula</text>
+ <path id="naCytosolFlow" d="M280 388 C380 388 500 388 742 388" fill="none" stroke="#0077ff" stroke-width="3" stroke-dasharray="5 6" opacity=".58"/>
+ <path d="M690 350 C750 320 830 318 920 318" fill="none" stroke="#0077ff" stroke-width="3" marker-end="url(#arrBlue)"/>
+ <text class="smallLabel" x="850" y="300" fill="#0077ff">3 Na⁺ → sangue</text>
+ <path d="M940 415 C875 415 830 405 785 392" fill="none" stroke="#7b2cbf" stroke-width="3" marker-end="url(#arrPurple)"/>
+ <text class="smallLabel" x="900" y="440" fill="#7b2cbf">2 K⁺ entram</text>
+ <path id="kFlux" d="M320 466 C270 466 218 460 168 460" fill="none" stroke="#f94144" stroke-width="3" marker-end="url(#arrRed)"/>
+ <text class="smallLabel" x="135" y="442" fill="#f94144">K⁺ sai para o lúmen</text>
  <!-- Caminhos nomeados usados por getPointAtLength -->
  <g id="motionPaths" fill="none" stroke="transparent" stroke-width="1">
    <path id="pathBloodToMR" d="M980 155 C920 155 850 165 790 198 C745 222 700 240 666 257"/>
@@ -1206,7 +1206,7 @@ svg{width:100%;height:auto;display:block;background:#fff;border:1px solid var(--
    <path id="pathMRNucleusToRibosome" d="M505 211 C500 235 498 259 500 283"/>
    <path id="pathVesicleApical" d="M470 305 C423 323 370 344 278 436"/>
    <path id="pathVesicleBasolateral" d="M525 307 C590 326 672 368 758 456"/>
-   <path id="pathNaApical" d="M78 378 C135 378 195 378 254 378"/>
+   <path id="pathNaApical" d="M78 378 C135 378 195 378 272 378"/>
    <path id="pathNaCytosol" d="M272 378 C360 378 450 386 535 386 S675 383 744 382"/>
    <path id="pathNaPumpOut" d="M778 367 C820 358 858 328 963 318"/>
    <path id="pathKPumpIn" d="M968 414 C900 414 840 404 778 389"/>
@@ -1216,8 +1216,8 @@ svg{width:100%;height:auto;display:block;background:#fff;border:1px solid var(--
  <g id="particles"></g>
  <text class="tinyLabel" x="550" y="545">A bomba Na⁺/K⁺-ATPase: 3 Na⁺ para fora + 2 K⁺ para dentro por ATP.</text>
 </svg>
-<div class="legend"><span class="key"><i class="dot" style="background:#f1c40f"></i>Aldosterona (esteroide)</span><span class="key"><i class="dot" style="background:#1d6fb8"></i>Na⁺</span><span class="key"><i class="dot" style="background:#8e44ad"></i>K⁺ entrando pela bomba</span><span class="key"><i class="dot" style="background:#d94841"></i>K⁺ secretado ao lúmen</span><span class="key"><i class="dot" style="background:#198754"></i>RNAm / síntese</span></div>
-<div class="foot"><strong>Tempo didático:</strong> a expressão funcional de canais (E) é agora um estado das EDOs, com atraso ilustrativo de 120 min em relação à aldosterona; isso melhora a consistência interna, mas não é uma calibração molecular clínica. O Na⁺ segue lúmen → citosol → bomba → sangue. Cada ciclo da Na⁺/K⁺-ATPase consome 3 unidades do pool intracelular de Na⁺, envia 3 Na⁺ ao sangue e traz 2 K⁺ do sangue; cada K⁺ segue pelo citosol e sai para o lúmen. Partículas são uma amostragem didática, enquanto o pool contabiliza a disponibilidade de Na⁺ para a bomba.</div>
+<div class="legend"><span class="key"><i class="dot" style="background:#f72585"></i>Aldosterona (esteroide)</span><span class="key"><i class="dot" style="background:#0077ff"></i>Na⁺</span><span class="key"><i class="dot" style="background:#7b2cbf"></i>K⁺ entrando pela bomba</span><span class="key"><i class="dot" style="background:#f94144"></i>K⁺ secretado ao lúmen</span><span class="key"><i class="dot" style="background:#00a878"></i>RNAm / síntese</span></div>
+<div class="foot">Esquema qualitativo: as partículas mostram o sentido dos fluxos, não quantidades moleculares reais.</div>
 </div>
 <script>
 const D = __CELL_DATA__;
@@ -1226,11 +1226,11 @@ const reducedMotion = window.matchMedia && window.matchMedia('(prefers-reduced-m
 const layer=document.getElementById('particles');
 const parts=[]; const MAX_PARTICLES=150;
 const stageTexts={
-  1:'1. A aldosterona, um esteroide lipossolúvel, difunde-se a partir do sangue e liga-se a um receptor intracelular. Não atravessa um canal iônico.',
-  2:'2. O complexo hormônio–receptor atua no núcleo e modifica a transcrição de genes envolvidos no transporte epitelial.',
-  3:'3. O RNAm segue ao ribossomo; proteínas novas são sintetizadas e transportadas em vesículas para a membrana apical (canais) e basolateral (bombas).',
-  4:'4. Além da síntese, a aldosterona modula proteínas já presentes. A comporta do canal abre mais nesta representação didática.',
-  5:'5. Na⁺ entra do lúmen por canais apicais e é bombeado para o sangue. A Na⁺/K⁺-ATPase transporta 3 Na⁺ para fora e 2 K⁺ para dentro por ATP; parte do K⁺ sai para o lúmen por canais apicais.'
+  1:'1. A aldosterona é lipossolúvel: atravessa a membrana basolateral e liga-se ao receptor mineralocorticoide dentro da célula. Não entra por um canal iônico.',
+  2:'2. O complexo aldosterona–receptor atua no núcleo e regula a transcrição de genes que participam do transporte de Na⁺ e K⁺.',
+  3:'3. O RNAm é traduzido nos ribossomos. Proteínas recém-sintetizadas são direcionadas à membrana apical (canais) e à basolateral (bombas).',
+  4:'4. A aldosterona pode aumentar a disponibilidade e a atividade de proteínas de transporte. A abertura do canal e a inserção de proteínas são ilustrativas; apenas E representa um estado dinâmico próprio no modelo.',
+  5:'5. O Na⁺ entra do lúmen por canais apicais e sai para o sangue pela Na⁺/K⁺-ATPase. Por ciclo, a bomba envia 3 Na⁺ para fora e traz 2 K⁺; parte do K⁺ pode seguir pelo citosol e sair para o lúmen.'
 };
 let simT=T[0], lastFrame=null, lastSimT=T[0], playing=false, mode='step', currentStage=1, channels=Math.max(0.05,D.baseline.E_channels||1);
 let naPool=9, naInTransit=0; const NA_POOL_SETPOINT=9; const MAX_NA_POOL=60;
@@ -1241,19 +1241,19 @@ const timeSeek=document.getElementById('timeSeek'); timeSeek.min=String(tMin);ti
 document.getElementById('regimeLabel').textContent=D.label+' · animação vinculada ao regime selecionado';
 function clamp(v,a,b){return Math.min(b,Math.max(a,v));}
 function sample(arr,t){if(t<=T[0])return arr[0];if(t>=T[T.length-1])return arr[arr.length-1];let lo=0,hi=T.length-1;while(hi-lo>1){const m=(lo+hi)>>1;if(T[m]<=t)lo=m;else hi=m;}const f=(t-T[lo])/((T[hi]-T[lo])||1);return arr[lo]+(arr[hi]-arr[lo])*f;}
-function stageMessage(n){document.getElementById('stageText').textContent=stageTexts[n];document.querySelectorAll('.stage').forEach(b=>b.classList.toggle('on',Number(b.dataset.stage)===n));}
+function stageMessage(n){const box=document.getElementById('stageText');box.textContent=stageTexts[n];const stageColors=['#f72585','#7b2cbf','#00a878','#0077ff','#f94144'];box.style.borderLeftColor=stageColors[n-1]||'#0077ff';document.querySelectorAll('.stage').forEach(b=>b.classList.toggle('on',Number(b.dataset.stage)===n));}
 function spawn(pathId,speed,color,onEnd=null,r=4){if(reducedMotion)return false;if(parts.length>=MAX_PARTICLES)return false;const path=document.getElementById(pathId);if(!path)return false;let len;try{len=path.getTotalLength();}catch(e){return false;}const el=document.createElementNS('http://www.w3.org/2000/svg','circle');el.setAttribute('r',r);el.setAttribute('fill',color);el.setAttribute('class','particle');el.setAttribute('stroke','#fff');el.setAttribute('stroke-width','1.2');layer.appendChild(el);const point=path.getPointAtLength(0);el.setAttribute('cx',point.x);el.setAttribute('cy',point.y);parts.push({el,path,len,s:0,speed,onEnd});return true;}
 function stepParticles(dt){for(let i=parts.length-1;i>=0;i--){const p=parts[i];p.s+=p.speed*dt;if(p.s>=p.len){p.el.remove();parts.splice(i,1);if(p.onEnd)p.onEnd();continue;}const pt=p.path.getPointAtLength(p.s);p.el.setAttribute('cx',pt.x);p.el.setAttribute('cy',pt.y);}}
 function clearParticles(){while(parts.length){parts.pop().el.remove();}naInTransit=0;naPool=NA_POOL_SETPOINT;}
 function highlightBinding(){document.getElementById('receptorHalo').style.opacity='1';document.getElementById('boundLigand').style.opacity='1';}
-function startReceptorToNucleus(continueCascade=true){document.getElementById('nucleus').classList.add('glow');spawn('pathMRToNucleus',110,'#8e44ad',()=>{document.getElementById('nucleus').classList.remove('glow');if(continueCascade)spawn('pathMRNucleusToRibosome',105,'#198754',()=>{addVesicles();},4);},4);}
-function addVesicles(){spawn('pathVesicleApical',105,'#60a5c9',()=>document.getElementById('newChannel').classList.add('visible'),7);spawn('pathVesicleBasolateral',105,'#7fc4dd',()=>document.getElementById('newPump').classList.add('visible'),7);}
+function startReceptorToNucleus(continueCascade=true){document.getElementById('nucleus').classList.add('glow');spawn('pathMRToNucleus',110,'#f97316',()=>{document.getElementById('nucleus').classList.remove('glow');if(continueCascade)spawn('pathMRNucleusToRibosome',105,'#00a878',()=>{addVesicles();},4);},4);}
+function addVesicles(){spawn('pathVesicleApical',105,'#0891b2',()=>document.getElementById('newChannel').classList.add('visible'),7);spawn('pathVesicleBasolateral',105,'#22d3ee',()=>document.getElementById('newPump').classList.add('visible'),7);}
 function flashATP(){const el=document.getElementById('atpFlash');el.classList.add('on');window.setTimeout(()=>el.classList.remove('on'),500);}
 function spawnNaEntry(speed=105){
   // Reserva o Na⁺ em trânsito para que o limite do pool não descarte íons já entrando.
   if(naPool+naInTransit>=MAX_NA_POOL)return false;
-  const accepted=spawn('pathNaApical',speed,'#1d6fb8',()=>{
-    const continued=spawn('pathNaCytosol',speed,'#1d6fb8',()=>{
+  const accepted=spawn('pathNaApical',speed,'#0077ff',()=>{
+    const continued=spawn('pathNaCytosol',speed,'#0077ff',()=>{
       naInTransit=Math.max(0,naInTransit-1);
       naPool+=1;
     },3.5);
@@ -1264,9 +1264,9 @@ function spawnNaEntry(speed=105){
 }
 function spawnKCycleChain(speed=105){
   // Cada K⁺ segue sangue → bomba → citosol → lúmen; não há secreção independente.
-  return spawn('pathKPumpIn',speed,'#8e44ad',()=>{
-    spawn('pathKCytosol',speed,'#8e44ad',()=>{
-      spawn('pathKApical',speed,'#d94841',null,3.8);
+  return spawn('pathKPumpIn',speed,'#7b2cbf',()=>{
+    spawn('pathKCytosol',speed,'#7b2cbf',()=>{
+      spawn('pathKApical',speed,'#f94144',null,3.8);
     },4.0);
   },4.2);
 }
@@ -1274,7 +1274,7 @@ function pumpCycle(){
   // Um ciclo é atômico: 3 Na⁺ consumidos e 2 K⁺ transportados por ATP.
   if(naPool<3 || parts.length+5>MAX_PARTICLES)return false;
   naPool-=3;flashATP();
-  for(let i=0;i<3;i++){if(!spawn('pathNaPumpOut',105,'#1d6fb8',null,3.8))return false;}
+  for(let i=0;i<3;i++){if(!spawn('pathNaPumpOut',105,'#0077ff',null,3.8))return false;}
   for(let i=0;i<2;i++){if(!spawnKCycleChain(105))return false;}
   return true;
 }
@@ -1289,15 +1289,15 @@ function stageAction(n){mode='step';playing=false;clearParticles();currentStage=
     document.getElementById('nucleus').classList.toggle('glow',n===2||n===3);
     return;
   }
-  if(n===1){spawn('pathBloodToMR',120,'#f1c40f',highlightBinding,5);}
+  if(n===1){spawn('pathBloodToMR',120,'#f72585',highlightBinding,5);}
   if(n===2){startReceptorToNucleus(false);}
-  if(n===3){document.getElementById('newChannel').classList.remove('visible');document.getElementById('newPump').classList.remove('visible');document.getElementById('nucleus').classList.add('glow');spawn('pathMRNucleusToRibosome',105,'#198754',()=>{document.getElementById('nucleus').classList.remove('glow');addVesicles();},4);}
+  if(n===3){document.getElementById('newChannel').classList.remove('visible');document.getElementById('newPump').classList.remove('visible');document.getElementById('nucleus').classList.add('glow');spawn('pathMRNucleusToRibosome',105,'#00a878',()=>{document.getElementById('nucleus').classList.remove('glow');addVesicles();},4);}
   if(n===5){naPool=NA_POOL_SETPOINT;for(let i=0;i<4;i++)spawnNaEntry(100);pumpCycle();}
 }
 function startContinuous(){mode='continuous';playing=true;clearParticles();lastSimT=simT;document.getElementById('modeStep').classList.remove('primary');document.getElementById('modeContinuous').classList.add('primary');document.getElementById('playCell').textContent='⏸ Pausar tempo';stageMessage(1);if(reducedMotion){playing=false;document.getElementById('playCell').textContent='▶ Reproduzir tempo';document.getElementById('stageText').textContent='Movimento contínuo pausado porque o dispositivo indica preferência por movimento reduzido. Use os botões 1–5 para percorrer as etapas.';}}
 function poisson(rate,dt){return Math.random() < 1-Math.exp(-Math.max(0,rate)*Math.max(0,dt));}
-function continuousEvents(dtReal,dtModel,ald,k){channels=clamp(sampleChannelDensity(simT),0.05,4.0);const baselineE=Math.max(0.05,D.baseline.E_channels||1);const mod=clamp(channels/baselineE-1,-1,1);document.getElementById('gateA').style.transform='translateY('+(-4*mod)+'px)';document.getElementById('gateB').style.transform='translateY('+(4*mod)+'px)';if(reducedMotion)return;
-  if(poisson(0.34*clamp(ald,0.05,3.0),dtReal)){spawn('pathBloodToMR',115,'#f1c40f',()=>{highlightBinding();startReceptorToNucleus(true);window.setTimeout(()=>{document.getElementById('receptorHalo').style.opacity='0.2';document.getElementById('boundLigand').style.opacity='0';},500);},4);}
+function continuousEvents(dtReal,dtModel,ald,k){channels=clamp(sampleChannelDensity(simT),0.05,4.0);const baselineE=Math.max(0.05,D.baseline.E_channels||1);const mod=clamp(channels/baselineE-1,-1,1);document.getElementById('gateA').style.transform='translateY('+(-4*mod)+'px)';document.getElementById('gateB').style.transform='translateY('+(4*mod)+'px)';const flowWidth=(2.4+Math.min(channels,3.8)).toFixed(1);const flowOpacity=clamp(0.38+0.16*channels,0.38,1).toFixed(2);for(const flowId of ['naFlux','naCytosolFlow']){const flowEl=document.getElementById(flowId);if(flowEl){flowEl.style.strokeWidth=flowWidth;flowEl.style.opacity=flowOpacity;}}if(reducedMotion)return;
+  if(poisson(0.34*clamp(ald,0.05,3.0),dtReal)){spawn('pathBloodToMR',115,'#f72585',()=>{highlightBinding();startReceptorToNucleus(true);window.setTimeout(()=>{document.getElementById('receptorHalo').style.opacity='0.2';document.getElementById('boundLigand').style.opacity='0';},500);},4);}
   // Canal apical controla entradas. Cada partícula segue para o citosol e incrementa o pool ao chegar.
   if(naPool<MAX_NA_POOL && poisson(0.55*channels,dtReal))spawnNaEntry(105);
   // A bomba só pode ciclar se houver 3 Na⁺ disponíveis. A taxa depende do pool intracelular.
@@ -1305,7 +1305,7 @@ function continuousEvents(dtReal,dtModel,ald,k){channels=clamp(sampleChannelDens
   const pumpRate=(0.55*channels/3.0)*poolFactor*clamp(k,0.05,3.0);
   if(naPool>=3 && poisson(pumpRate,dtReal))pumpCycle();
 }
-function updateReadouts(){const ald=sample(ALD,simT),k=sample(K,simT);document.getElementById('timeReadout').textContent=simT<0?'basal':(D.is_chronic?(simT/1440).toFixed(2)+' dias':simT.toFixed(1)+' min');document.getElementById('valuesReadout').textContent='Ald = '+ald.toFixed(2)+' · E canais = '+channels.toFixed(2)+' · K⁺ = '+k.toFixed(2)+' · pool Na⁺ = '+naPool;timeSeek.value=String(simT);}
+function updateReadouts(){const ald=sample(ALD,simT),k=sample(K,simT);document.getElementById('timeReadout').textContent=simT<0?'basal':(D.is_chronic?(simT/1440).toFixed(2)+' dias':simT.toFixed(1)+' min');document.getElementById('valuesReadout').textContent='Ald = '+ald.toFixed(2)+' · E canais = '+channels.toFixed(2)+' · K⁺ = '+k.toFixed(2)+' · Na⁺ disponível à bomba (unid. didáticas) = '+naPool;timeSeek.value=String(simT);}
 document.querySelectorAll('.stage').forEach(b=>b.addEventListener('click',()=>stageAction(Number(b.dataset.stage))));
 document.getElementById('modeStep').addEventListener('click',()=>{mode='step';playing=false;clearParticles();document.getElementById('modeStep').classList.add('primary');document.getElementById('modeContinuous').classList.remove('primary');document.getElementById('playCell').textContent='▶ Reproduzir tempo';stageMessage(currentStage);});
 document.getElementById('modeContinuous').addEventListener('click',startContinuous);
@@ -1343,7 +1343,7 @@ with aldosterone_tab:
         "A animação abaixo reutiliza as séries de **aldosterona (Ald)** e **potássio (K⁺)** do regime selecionado. "
         "O mecanismo molecular é uma ilustração; a expressão funcional E tem agora um atraso explícito nas EDOs, com constante de tempo didática de 120 min."
     )
-    st.iframe(cell_html, width="stretch", height=900, alt="Animação didática da ação da aldosterona numa célula epitelial do néfron distal")
+    st.iframe(cell_html, width="stretch", height=940, alt="Animação didática da ação da aldosterona numa célula epitelial do néfron distal")
 
 if compare_enabled and data_b is not None:
     st.subheader("Resumo quantitativo da comparação")
@@ -1418,39 +1418,42 @@ if compare_enabled and data_b is not None:
             else:
                 st.warning("Uma ou mais assinaturas não passaram. Reveja os parâmetros antes de interpretar o contraste.")
 
-if st.button("Executar suíte ampliada de autoverificação", key="run_full_validation"):
-    with st.spinner("Executando testes farmacológicos, monotonicidade e recuperação crônica..."):
-        none_60 = simulate(drop=0.20, t_end=60.0, is_chronic=False, drugs={"ace":0.0,"arb":0.0,"dri":0.0}, params=PARAMS)
-        dri_max = simulate(drop=0.20, t_end=60.0, is_chronic=False, drugs={"ace":0.0,"arb":0.0,"dri":1.0}, params=PARAMS)
-        ace_levels = [simulate(drop=0.20,t_end=60.0,is_chronic=False,drugs={"ace":v,"arb":0.0,"dri":0.0},params=PARAMS) for v in (0.0,0.5,1.0)]
-        bra_levels = [simulate(drop=0.20,t_end=60.0,is_chronic=False,drugs={"ace":0.0,"arb":v,"dri":0.0},params=PARAMS) for v in (0.0,0.5,1.0)]
-        dri_levels = [simulate(drop=0.20,t_end=60.0,is_chronic=False,drugs={"ace":0.0,"arb":0.0,"dri":v},params=PARAMS) for v in (0.0,0.5,1.0)]
-        recovery_3d = simulate(drop=0.20,t_end=3*1440.0,is_chronic=True,drugs={"ace":0.0,"arb":0.0,"dri":0.0},params=PARAMS)
-    checks_full = {
-        "Grade temporal idêntica entre os níveis de dose": all(q["t"] == ace_levels[0]["t"] for q in ace_levels) and all(q["t"] == bra_levels[0]["t"] for q in bra_levels) and all(q["t"] == dri_levels[0]["t"] for q in dri_levels),
-        "Inibidor da renina reduz a atividade de renina aos 60 min": dri_max["R"][-1] < none_60["R"][-1],
-        "IECA: mais intensidade não eleva Ang II": ace_levels[0]["A2"][-1] >= ace_levels[1]["A2"][-1] >= ace_levels[2]["A2"][-1],
-        "IECA: mais intensidade não reduz bradicinina": ace_levels[0]["BK"][-1] <= ace_levels[1]["BK"][-1] <= ace_levels[2]["BK"][-1],
-        "BRA: mais intensidade não eleva AT1 efetivo": bra_levels[0]["AT1"][-1] >= bra_levels[1]["AT1"][-1] >= bra_levels[2]["AT1"][-1],
-        "Inibidor da renina: mais intensidade não eleva renina": dri_levels[0]["R"][-1] >= dri_levels[1]["R"][-1] >= dri_levels[2]["R"][-1],
-        "Resposta de expressão E atrasa a aldosterona (não é instantânea)": np.max(np.abs(np.asarray(ace_levels[2]["E"]) - np.asarray(ace_levels[2]["Ald"]))) > 1e-3,
-        "Recuperação de PAM ≥95% do basal em até 3 dias (sem fármaco, queda 20%)": pam_recovery_time(recovery_3d) is not None,
-    }
-    st.dataframe([{"Verificação": name, "Resultado": "OK" if ok else "FALHOU"} for name,ok in checks_full.items()], hide_index=True, width="stretch")
-    if all(checks_full.values()):
-        st.success("Todas as verificações da suíte ampliada passaram para estes cenários didáticos.")
-    else:
-        st.warning("Há verificações que não passaram. Isso não deve ser ocultado: reveja os mecanismos/parâmetros e interprete as curvas com cautela.")
+SHOW_INTERNAL_DIAGNOSTICS = False  # Mude para True para exibir controles internos de validação.
+if SHOW_INTERNAL_DIAGNOSTICS:
+    if st.button("Executar suíte ampliada de autoverificação", key="run_full_validation"):
+        with st.spinner("Executando testes farmacológicos, monotonicidade e recuperação crônica..."):
+            none_60 = simulate(drop=0.20, t_end=60.0, is_chronic=False, drugs={"ace":0.0,"arb":0.0,"dri":0.0}, params=PARAMS)
+            dri_max = simulate(drop=0.20, t_end=60.0, is_chronic=False, drugs={"ace":0.0,"arb":0.0,"dri":1.0}, params=PARAMS)
+            ace_levels = [simulate(drop=0.20,t_end=60.0,is_chronic=False,drugs={"ace":v,"arb":0.0,"dri":0.0},params=PARAMS) for v in (0.0,0.5,1.0)]
+            bra_levels = [simulate(drop=0.20,t_end=60.0,is_chronic=False,drugs={"ace":0.0,"arb":v,"dri":0.0},params=PARAMS) for v in (0.0,0.5,1.0)]
+            dri_levels = [simulate(drop=0.20,t_end=60.0,is_chronic=False,drugs={"ace":0.0,"arb":0.0,"dri":v},params=PARAMS) for v in (0.0,0.5,1.0)]
+            recovery_3d = simulate(drop=0.20,t_end=3*1440.0,is_chronic=True,drugs={"ace":0.0,"arb":0.0,"dri":0.0},params=PARAMS)
+        checks_full = {
+            "Grade temporal idêntica entre os níveis de dose": all(q["t"] == ace_levels[0]["t"] for q in ace_levels) and all(q["t"] == bra_levels[0]["t"] for q in bra_levels) and all(q["t"] == dri_levels[0]["t"] for q in dri_levels),
+            "Inibidor da renina reduz a atividade de renina aos 60 min": dri_max["R"][-1] < none_60["R"][-1],
+            "IECA: mais intensidade não eleva Ang II": ace_levels[0]["A2"][-1] >= ace_levels[1]["A2"][-1] >= ace_levels[2]["A2"][-1],
+            "IECA: mais intensidade não reduz bradicinina": ace_levels[0]["BK"][-1] <= ace_levels[1]["BK"][-1] <= ace_levels[2]["BK"][-1],
+            "BRA: mais intensidade não eleva AT1 efetivo": bra_levels[0]["AT1"][-1] >= bra_levels[1]["AT1"][-1] >= bra_levels[2]["AT1"][-1],
+            "Inibidor da renina: mais intensidade não eleva renina": dri_levels[0]["R"][-1] >= dri_levels[1]["R"][-1] >= dri_levels[2]["R"][-1],
+            "Resposta de expressão E atrasa a aldosterona (não é instantânea)": np.max(np.abs(np.asarray(ace_levels[2]["E"]) - np.asarray(ace_levels[2]["Ald"]))) > 1e-3,
+            "Recuperação de PAM ≥95% do basal em até 3 dias (sem fármaco, queda 20%)": pam_recovery_time(recovery_3d) is not None,
+        }
+        st.dataframe([{"Verificação": name, "Resultado": "OK" if ok else "FALHOU"} for name,ok in checks_full.items()], hide_index=True, width="stretch")
+        if all(checks_full.values()):
+            st.success("Todas as verificações da suíte ampliada passaram para estes cenários didáticos.")
+        else:
+            st.warning("Há verificações que não passaram. Isso não deve ser ocultado: reveja os mecanismos/parâmetros e interprete as curvas com cautela.")
 
 # =====================================================================
 # 4. DIAGNÓSTICOS MATEMÁTICOS E LIMITAÇÕES
 # =====================================================================
-with st.expander("Verificar o equilíbrio numérico", expanded=False):
-    st.write(f"Convergência do cálculo do equilíbrio: **{data['equilibrium_ok']}**")
-    st.write(f"Maior resíduo normalizado: **{data['equilibrium_residual']:.3e}**")
-    st.write("Estado estacionário usado antes da perturbação, já considerando os fármacos selecionados:")
-    baseline_rows = [{"Variável": name, "Índice basal calculado": round(value, 4)} for name, value in data["baseline"].items()]
-    st.dataframe(baseline_rows, hide_index=True, width="stretch")
+if SHOW_INTERNAL_DIAGNOSTICS:
+    with st.expander("Verificar o equilíbrio numérico", expanded=False):
+        st.write(f"Convergência do cálculo do equilíbrio: **{data['equilibrium_ok']}**")
+        st.write(f"Maior resíduo normalizado: **{data['equilibrium_residual']:.3e}**")
+        st.write("Estado estacionário usado antes da perturbação, já considerando os fármacos selecionados:")
+        baseline_rows = [{"Variável": name, "Índice basal calculado": round(value, 4)} for name, value in data["baseline"].items()]
+        st.dataframe(baseline_rows, hide_index=True, width="stretch")
 
 st.markdown("---")
 st.markdown(
@@ -1460,5 +1463,4 @@ st.markdown(
     "- A perturbação é aplicada uma vez como redução inicial de volume relativo; o sistema pode compensá-la ao longo do tempo. Isso não equivale a uma hemorragia ou choque clínico real.\n- Na fase crônica, os balanços de sódio, potássio e volume usam constantes de tempo lentas, definidas para fins didáticos.\n"
     "- A TFG é uma estimativa fenomenológica simples. O modelo não inclui a mecânica completa do néfron, o transporte segmentar, a osmolaridade plasmática, a farmacocinética nem variabilidade individual.\n"
     "- Os avisos são indicadores pedagógicos e não devem ser usados para diagnosticar ou orientar tratamentos.\n"
-    "- Esta versão utiliza st.iframe (Streamlit 1.56 ou superior); instale as dependências com o arquivo requirements_sraa_v11.txt."
 )
