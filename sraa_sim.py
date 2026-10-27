@@ -793,6 +793,12 @@ svg{display:block;width:100%;height:auto;}
 .sub{font-size:12px;fill:#7a8ba3;text-anchor:middle;}
 .val{font-size:13px;font-weight:700;text-anchor:middle;font-variant-numeric:tabular-nums;}
 .flow{fill:none;stroke-width:4;stroke-linecap:round;stroke-dasharray:9 11;}
+.static-flow{fill:none;stroke:#94a3b8;stroke-width:2.5;stroke-dasharray:5 6;stroke-linecap:round;}
+.section-head{font-size:14px;font-weight:800;letter-spacing:.06em;fill:#475569;text-anchor:middle;}
+.node-sub{font-size:11.5px;fill:#526581;text-anchor:middle;}
+.small-txt{font-size:11px;fill:#64748b;text-anchor:middle;}
+.enz-label{font-size:11.5px;font-weight:800;fill:#1e293b;text-anchor:middle;}
+.badge-text{font-size:10.5px;font-weight:800;text-anchor:middle;}
 .charts{display:flex;flex-direction:column;gap:16px;margin-top:16px;width:100%;}
 .card{flex:none;width:100%;min-width:0;background:#fbfcfe;border:1px solid var(--line);border-radius:14px;padding:12px 14px 10px;}
 .card h4{margin:0 0 5px 4px;font-size:16px;letter-spacing:.025em;text-transform:uppercase;color:var(--muted);}
@@ -827,52 +833,168 @@ button.pri:hover{background:#185a95;}
   <div class="gw"><div class="gauge"><i id="gfill"></i></div></div>
   <div class="clock" id="clock">t = 0 min</div>
 </div>
-<svg id="dia" viewBox="0 0 1000 420" preserveAspectRatio="xMidYMid meet">
+<svg id="dia" viewBox="0 0 1380 625" preserveAspectRatio="xMidYMid meet" role="img" aria-label="Fluxograma do SRAA: estímulos para renina, cascata hormonal e efeitos vasculares, renais e de ADH">
   <defs>
-    <marker id="flowArrow" markerWidth="7" markerHeight="7" refX="5.5" refY="3" orient="auto" markerUnits="userSpaceOnUse">
-      <path d="M0,0 L6,3 L0,6 z" fill="#64748b"/>
+    <marker id="flowArrow" markerWidth="8" markerHeight="8" refX="6.5" refY="4" orient="auto" markerUnits="userSpaceOnUse">
+      <path d="M0,0 L7,4 L0,8 z" fill="#475569"/>
     </marker>
   </defs>
+  <!-- Zonas didáticas: estímulos, cascata e efeitos -->
+  <rect x="18" y="42" width="255" height="335" rx="18" fill="#f5f3ff" stroke="#ddd6fe" stroke-width="1.5"/>
+  <rect x="285" y="42" width="650" height="335" rx="18" fill="#f0f9ff" stroke="#bae6fd" stroke-width="1.5"/>
+  <rect x="950" y="42" width="405" height="550" rx="18" fill="#f0fdf4" stroke="#bbf7d0" stroke-width="1.5"/>
+  <rect x="285" y="405" width="690" height="187" rx="18" fill="#faf5ff" stroke="#e9d5ff" stroke-width="1.5"/>
+  <text class="section-head" x="145" y="27">1 · ESTÍMULOS</text>
+  <text class="section-head" x="610" y="27">2 · CASCATA HORMONAL</text>
+  <text class="section-head" x="1152" y="27">3 · EFEITOS E RESPOSTAS</text>
+
   <g id="flows">
-    <line class="flow" id="f_ren" x1="180" y1="72" x2="240" y2="72" stroke="#7c3aed" marker-end="url(#flowArrow)"/>
-    <line class="flow" id="f_a1" x1="380" y1="72" x2="440" y2="72" stroke="#009e73" marker-end="url(#flowArrow)"/>
-    <line class="flow" id="f_a2" x1="580" y1="72" x2="640" y2="72" stroke="#f04e37" marker-end="url(#flowArrow)"/>
-    <line class="flow" id="f_ald" x1="755" y1="115" x2="850" y2="239" stroke="#d81b60" marker-end="url(#flowArrow)"/>
-    <polyline class="flow" id="f_at1" points="570,116 600,130 610,190 660,239" stroke="#f04e37" marker-end="url(#flowArrow)"/>
-    <line class="flow" id="f_at2" x1="535" y1="116" x2="760" y2="239" stroke="#f59e0b" marker-end="url(#flowArrow)"/>
-    <line class="flow" id="f_bk" x1="580" y1="185" x2="619" y2="278" stroke="#9333ea" marker-end="url(#flowArrow)"/>
-    <line class="flow" id="f_adh" x1="880" y1="116" x2="920" y2="239" stroke="#16a34a" marker-end="url(#flowArrow)"/>
+    <!-- Sinais que favorecem a liberação de renina -->
+    <line class="static-flow" id="fStim" x1="145" y1="205" x2="145" y2="228" marker-end="url(#flowArrow)"/>
+    <!-- Angiotensinogênio --(renina)--> Ang I --(ECA)--> Ang II -->
+    <line class="flow" id="f_ren" x1="455" y1="300" x2="525" y2="300" stroke="#7c3aed" marker-end="url(#flowArrow)"/>
+    <line class="flow" id="f_a1" x1="675" y1="300" x2="765" y2="300" stroke="#009e73" marker-end="url(#flowArrow)"/>
+    <!-- Ang II também estimula a produção adrenal de aldosterona -->
+    <polyline class="flow" id="f_a2" points="905,252 951,211 993,180 1030,158" stroke="#f04e37" marker-end="url(#flowArrow)"/>
+    <!-- Ang II atua nos receptores vasculares AT1 e AT2: ambas as setas partem de Ang II -->
+    <polyline class="flow" id="f_at1" points="930,276 953,276 972,291 990,291" stroke="#f04e37" marker-end="url(#flowArrow)"/>
+    <polyline class="flow" id="f_at2" points="930,319 953,330 973,343 990,343" stroke="#f59e0b" marker-end="url(#flowArrow)"/>
+    <!-- Aldosterona influencia o néfron distal / balanço de Na+ e K+ -->
+    <polyline class="flow" id="f_ald" points="1220,185 1355,202 1355,447 1338,447" stroke="#d81b60" marker-end="url(#flowArrow)"/>
+    <!-- Bradicinina exerce efeito vasodilatador no modelo -->
+    <polyline class="flow" id="f_bk" points="490,458 660,414 838,405 990,365" stroke="#9333ea" marker-end="url(#flowArrow)"/>
+    <!-- ADH atua no ducto coletor; a via fica separada da cascata da aldosterona -->
+    <line class="flow" id="f_adh" x1="710" y1="510" x2="760" y2="510" stroke="#16a34a" marker-end="url(#flowArrow)"/>
   </g>
-  <g id="bxR"><rect class="bg" x="20" y="28" width="160" height="88" rx="14" fill="#f7f9fc"/>
-    <text class="ttl" x="100" y="56">Rim</text><text class="sub" x="100" y="73">atividade da renina</text>
-    <text class="val" x="100" y="98" id="vR" fill="#7c3aed">renina 1.00</text></g>
-  <g id="bxF"><rect class="bg" x="240" y="28" width="140" height="88" rx="14" fill="#f7f9fc"/>
-    <text class="ttl" x="310" y="56">Angiotensina I</text><text class="sub" x="310" y="73">precursor</text>
-    <text class="val" x="310" y="98" id="vA1" fill="#009e73">Ang I 1.00</text></g>
-  <g id="bxP"><rect class="bg" x="440" y="28" width="140" height="88" rx="14" fill="#f7f9fc"/>
-    <text class="ttl" x="510" y="56">Angiotensina II</text><text class="sub" x="510" y="73">formação via ECA</text>
-    <text class="val" x="510" y="98" id="vA2" fill="#f04e37">Ang II 1.00</text></g>
-  <g id="bxA"><rect class="bg" x="640" y="28" width="140" height="88" rx="14" fill="#f7f9fc"/>
-    <text class="ttl" x="710" y="56">Adrenal</text><text class="sub" x="710" y="73">aldosterona</text>
-    <text class="val" x="710" y="98" id="vAld" fill="#d81b60">Ald 1.00</text></g>
-  <g id="bxH"><rect class="bg" x="840" y="28" width="140" height="88" rx="14" fill="#f7f9fc"/>
-    <text class="ttl" x="910" y="56">Neuro-hipófise</text><text class="sub" x="910" y="73">ADH / vasopressina</text>
-    <text class="val" x="910" y="98" id="vADH" fill="#16a34a">ADH 1.00</text></g>
-  <g id="bxV"><rect class="bg" x="620" y="240" width="180" height="110" rx="14" fill="#f7f9fc"/>
-    <text class="ttl" x="710" y="265" font-size="13">Vasos / receptores</text>
-    <rect id="lumen" x="645" y="280" width="130" height="34" rx="10" fill="#f7d9d3" stroke="#f04e37" stroke-width="2"/>
-    <text class="val" x="660" y="330" id="vAT1" fill="#f04e37">AT1 1.00</text>
-    <text class="val" x="760" y="330" id="vAT2" fill="#f59e0b">AT2 1.00</text></g>
-  <g id="bxT"><rect class="bg" x="820" y="240" width="160" height="110" rx="14" fill="#f7f9fc"/>
-    <text class="ttl" x="900" y="261" font-size="12">Balanço hidroeletrolítico</text>
-    <text class="sub" x="900" y="276">Na corporal / K⁺ plasmático</text>
-    <rect x="835" y="280" width="130" height="26" rx="13" fill="#e6eefb" stroke="#c3d5ee"/>
+
+  <!-- Estímulos de renina -->
+  <g id="bxStimuli">
+    <rect class="bg" x="30" y="55" width="230" height="150" rx="14" fill="#ffffff" stroke="#c4b5fd"/>
+    <text class="ttl" x="145" y="79">Sinais para liberar renina</text>
+    <circle cx="51" cy="103" r="5" fill="#7c3aed"/><text x="65" y="107" style="font-size:12px;fill:#334155">↓ perfusão renal</text>
+    <circle cx="51" cy="132" r="5" fill="#7c3aed"/><text x="65" y="136" style="font-size:12px;fill:#334155">↓ NaCl na mácula densa</text>
+    <circle cx="51" cy="161" r="5" fill="#7c3aed"/><text x="65" y="165" style="font-size:12px;fill:#334155">↑ simpático (β₁)</text>
+    <text class="small-txt" x="145" y="188">Estímulos regulatórios</text>
+  </g>
+
+  <g id="bxR">
+    <rect class="bg" x="35" y="230" width="220" height="135" rx="15" fill="#f7f9fc"/>
+    <text class="ttl" x="145" y="253">Rim</text>
+    <text class="sub" x="145" y="273">células justaglomerulares</text>
+    <text class="val" x="145" y="300" id="vR" fill="#7c3aed">renina 1.00</text>
+    <text class="small-txt" x="145" y="319">libera a enzima renina</text>
+    <g id="drugDriMark" display="none">
+      <rect x="49" y="330" width="192" height="24" rx="12" fill="#fee2e2" stroke="#dc2626"/>
+      <text class="badge-text" x="145" y="346" fill="#b91c1c">INIBIDOR DA RENINA ATIVO</text>
+    </g>
+  </g>
+
+  <!-- Substrato e moléculas da cascata -->
+  <g id="bxAngio">
+    <rect class="bg" x="285" y="240" width="170" height="120" rx="15" fill="#fff7ed" stroke="#fed7aa"/>
+    <text class="sub" x="370" y="263">FÍGADO</text>
+    <text class="ttl" x="370" y="288">Angiotensinogênio</text>
+    <text class="small-txt" x="370" y="312">substrato da renina</text>
+    <text class="small-txt" x="370" y="334">proteína precursora</text>
+  </g>
+  <g id="bxF">
+    <rect class="bg" x="525" y="240" width="150" height="120" rx="15" fill="#f7f9fc"/>
+    <text class="ttl" x="600" y="270">Angiotensina I</text>
+    <text class="sub" x="600" y="290">produto da renina</text>
+    <text class="val" x="600" y="323" id="vA1" fill="#009e73">Ang I 1.00</text>
+  </g>
+  <g id="bxP">
+    <rect class="bg" x="765" y="240" width="165" height="120" rx="15" fill="#f7f9fc"/>
+    <text class="ttl" x="847" y="270">Angiotensina II</text>
+    <text class="sub" x="847" y="290">peptídeo efetor</text>
+    <text class="val" x="847" y="323" id="vA2" fill="#f04e37">Ang II 1.00</text>
+  </g>
+
+  <!-- Enzimas e bloqueios: as marcas aparecem somente quando o fármaco está selecionado -->
+  <g id="reninEnzymeBadge">
+    <rect x="456" y="263" width="68" height="23" rx="11.5" fill="#ede9fe" stroke="#c4b5fd"/>
+    <text class="enz-label" x="490" y="278">Renina</text>
+  </g>
+  <g id="aceEnzymeBadge">
+    <rect x="686" y="263" width="68" height="23" rx="11.5" fill="#dcfce7" stroke="#86efac"/>
+    <text class="enz-label" x="720" y="278">ECA</text>
+  </g>
+  <g id="drugAceMark" display="none">
+    <rect x="681" y="329" width="78" height="23" rx="11.5" fill="#fee2e2" stroke="#dc2626"/>
+    <text class="badge-text" x="720" y="344" fill="#b91c1c">IECA ativo</text>
+  </g>
+  <text class="small-txt" x="962" y="198">estimula</text>
+  <text class="small-txt" x="1192" y="404">ação tubular da aldosterona</text>
+
+  <!-- Ramo adrenal -->
+  <g id="bxA">
+    <rect class="bg" x="1030" y="55" width="220" height="130" rx="15" fill="#fdf2f8" stroke="#fbcfe8"/>
+    <text class="ttl" x="1140" y="81">Córtex adrenal</text>
+    <text class="sub" x="1140" y="101">liberação de aldosterona</text>
+    <text class="val" x="1140" y="130" id="vAld" fill="#d81b60">Ald 1.00</text>
+    <text class="small-txt" x="1140" y="153">Ang II + K⁺ estimulam</text>
+    <text class="small-txt" x="1140" y="169">a secreção hormonal</text>
+  </g>
+
+  <!-- Alvos vasculares da Ang II -->
+  <g id="bxV">
+    <rect class="bg" x="990" y="232" width="345" height="153" rx="15" fill="#fff7ed" stroke="#fed7aa"/>
+    <text class="ttl" x="1162" y="256">Vasos sanguíneos</text>
+    <text class="sub" x="1162" y="274">receptores da angiotensina II</text>
+    <rect id="lumen" x="1125" y="282" width="74" height="14" rx="7" fill="#f7d9d3" stroke="#f04e37" stroke-width="2"/>
+    <text class="val" x="1076" y="316" id="vAT1" fill="#f04e37">AT1 1.00</text>
+    <text class="val" x="1237" y="316" id="vAT2" fill="#f59e0b">AT2 1.00</text>
+    <text class="small-txt" x="1076" y="337">vasoconstrição</text>
+    <text class="small-txt" x="1237" y="337">efeito contrarregulador</text>
+    <g id="drugBraMark" display="none">
+      <rect x="1007" y="348" width="138" height="24" rx="12" fill="#fee2e2" stroke="#dc2626"/>
+      <text class="badge-text" x="1076" y="364" fill="#b91c1c">BRA bloqueia AT1</text>
+    </g>
+    <text class="small-txt" x="1237" y="363">influência sobre PAM ↑/↓</text>
+  </g>
+
+  <!-- Ramo de bradicinina -->
+  <g id="bxK">
+    <rect class="bg" x="300" y="445" width="190" height="110" rx="15" fill="#faf5ff" stroke="#e9d5ff"/>
+    <text class="ttl" x="395" y="469">Bradicinina</text>
+    <text class="val" x="395" y="492" id="vBK" fill="#9333ea">BK 1.00</text>
+    <text class="small-txt" x="395" y="511">vasodilatação</text>
+    <text class="small-txt" x="395" y="526">a ECA também a degrada</text>
+    <g id="drugAceBkMark" display="none">
+      <rect x="311" y="530" width="168" height="21" rx="10.5" fill="#fee2e2" stroke="#dc2626"/>
+      <text class="badge-text" x="395" y="544" fill="#b91c1c">IECA reduz degradação</text>
+    </g>
+  </g>
+
+  <!-- Via paralela do ADH -->
+  <g id="bxH">
+    <rect class="bg" x="520" y="445" width="190" height="110" rx="15" fill="#f0fdf4" stroke="#bbf7d0"/>
+    <text class="ttl" x="615" y="468" style="font-size:12.5px">Hipotálamo / neuro-hipófise</text>
+    <text class="sub" x="615" y="489">ADH / vasopressina</text>
+    <text class="val" x="615" y="512" id="vADH" fill="#16a34a">ADH 1.00</text>
+    <text class="small-txt" x="615" y="534">responde à ↓ PAM / ↓ volume*</text>
+  </g>
+  <g id="bxWater">
+    <rect class="bg" x="760" y="445" width="215" height="110" rx="15" fill="#ecfeff" stroke="#a5f3fc"/>
+    <text class="ttl" x="867" y="469">Ducto coletor</text>
+    <text class="sub" x="867" y="489">ADH favorece reabsorção de água</text>
+    <text class="val" x="867" y="516" id="vVol" fill="#0891b2">Volume 1.00</text>
+    <text class="small-txt" x="867" y="536">índice relativo do modelo</text>
+  </g>
+
+  <!-- Resposta renal integrada e balanço eletrolítico -->
+  <g id="bxT">
+    <rect class="bg" x="1050" y="420" width="285" height="160" rx="15" fill="#eff6ff" stroke="#bfdbfe"/>
+    <text class="ttl" x="1192" y="444">Resposta renal / balanço</text>
+    <text class="sub" x="1192" y="464">Na⁺ corporal · K⁺ plasmático</text>
+    <rect x="1080" y="480" width="225" height="26" rx="13" fill="#dbeafe" stroke="#93c5fd"/>
     <g id="dots"></g>
-    <text class="val" x="865" y="330" id="vNa" fill="#006dff">Na 1.00</text>
-    <text class="val" x="935" y="330" id="vK" fill="#dc2626">K 1.00</text></g>
-  <g id="bxK"><rect class="bg" x="440" y="150" width="140" height="70" rx="14" fill="#f7f9fc"/>
-    <text class="ttl" x="510" y="175" font-size="13">Bradicinina</text>
-    <text class="val" x="510" y="200" id="vBK" fill="#9333ea">BK 1.00</text></g>
+    <text class="val" x="1130" y="530" id="vNa" fill="#006dff">Na 1.00</text>
+    <text class="val" x="1255" y="530" id="vK" fill="#dc2626">K 1.00</text>
+    <text class="small-txt" x="1192" y="550">Aldosterona: ↑ reabsorção de Na⁺</text>
+    <text class="small-txt" x="1192" y="566">e ↑ secreção de K⁺ no néfron distal</text>
+  </g>
+  <text class="small-txt" x="630" y="583">*O ramo do ADH representa a regulação usada neste modelo (PAM/volume); não inclui osmo-regulação.</text>
 </svg>
 <div class="comparison-legend" id="comparisonLegend" style="display:none">
   <div class="legend-items">
@@ -1047,8 +1169,9 @@ function deviationScale(v,baseline){
 function h2r(h){return [parseInt(h.slice(1,3),16),parseInt(h.slice(3,5),16),parseInt(h.slice(5,7),16)];}
 function mix(a,b,f){const A=h2r(a),B=h2r(b);return 'rgb('+Math.round(lerp(A[0],B[0],f))+','+Math.round(lerp(A[1],B[1],f))+','+Math.round(lerp(A[2],B[2],f))+')';}
 function setBox(id,n,pale,sat){const rect=document.querySelector('#'+id+' .bg');if(rect)rect.setAttribute('fill',mix(pale,sat,n));}
+function setDrugBadge(id,active){const el=document.getElementById(id);if(el)el.setAttribute('display',active?'inline':'none');}
 const dg=document.getElementById('dots'),dots=[];
-for(let i=0;i<6;i++){const el=document.createElementNS('http://www.w3.org/2000/svg','circle');el.setAttribute('r',4);el.setAttribute('cy',293);el.setAttribute('fill','#006dff');dg.appendChild(el);dots.push({el,x:835+i*22});}
+for(let i=0;i<6;i++){const el=document.createElementNS('http://www.w3.org/2000/svg','circle');el.setAttribute('r',4.2);el.setAttribute('cy',493);el.setAttribute('fill','#006dff');dg.appendChild(el);dots.push({el,x:1097+i*39});}
 const off={f_ren:0,f_a1:0,f_a2:0,f_ald:0,f_at1:0,f_at2:0,f_bk:0,f_adh:0};
 let simT=T0,playing=true,speed=1,lastTs=null,coughShown=false,kShown=false;
 function render(dt){
@@ -1068,6 +1191,11 @@ function render(dt){
   setBox('bxK',deviationScale(bk,BASE.BK),'#f4e6f7','#9333ea');
   setBox('bxV',Math.max(deviationScale(at1,BASE_OUT.AT1),deviationScale(at2,BASE_OUT.AT2)),'#fbe3dc','#f04e37');
   setBox('bxT',Math.max(deviationScale(na,BASE.Na_body),deviationScale(k,BASE.K_plasma)),'#e6eefb','#006dff');
+  setBox('bxWater',deviationScale(vol,BASE.Vol),'#e0f2fe','#0891b2');
+  setDrugBadge('drugDriMark',DRUGS.dri>0.05);
+  setDrugBadge('drugAceMark',DRUGS.ace>0.05);
+  setDrugBadge('drugAceBkMark',DRUGS.ace>0.05);
+  setDrugBadge('drugBraMark',DRUGS.arb>0.05);
   document.getElementById('vR').textContent='renina '+r.toFixed(2);
   document.getElementById('vA1').textContent='Ang I '+a1.toFixed(2);
   document.getElementById('vA2').textContent='Ang II '+a2.toFixed(2);
@@ -1078,12 +1206,13 @@ function render(dt){
   document.getElementById('vBK').textContent='BK '+bk.toFixed(2);
   document.getElementById('vNa').textContent='Na '+na.toFixed(2);
   document.getElementById('vK').textContent='K '+k.toFixed(2);
+  document.getElementById('vVol').textContent='Volume '+vol.toFixed(2);
   const arrows=[['f_ren',r,BASE.R],['f_a1',a1,BASE.A1],['f_a2',a2,BASE.A2],['f_ald',al,BASE.Ald],['f_at1',at1,BASE_OUT.AT1],['f_at2',at2,BASE_OUT.AT2],['f_bk',bk,BASE.BK],['f_adh',adh,BASE.ADH]];
   arrows.forEach(([id,v,b0])=>{const n=deviationScale(v,b0);off[id]-=(5+75*n)*dt;const el=document.getElementById(id);el.setAttribute('stroke-dashoffset',off[id]);el.setAttribute('opacity',0.15+0.85*n);});
   // Lúmen: AT1 contrai; AT2 dilata. Altura basal é exatamente 34 px.
-  const h=clamp(34-8*(at1-1)+4*(at2-1),12,50);
-  const lum=document.getElementById('lumen');lum.setAttribute('height',h);lum.setAttribute('y',280+(34-h)/2);
-  dots.forEach(d=>{d.x+=(8+12*clamp(na,0.3,2.0))*dt;if(d.x>965)d.x=835;d.el.setAttribute('cx',d.x);d.el.setAttribute('opacity',clamp(0.5+0.25*(na-1),0.2,1));});
+  const h=clamp(14-4*(at1-1)+2*(at2-1),6,22);
+  const lum=document.getElementById('lumen');lum.setAttribute('height',h);lum.setAttribute('y',289+(14-h)/2);
+  dots.forEach(d=>{d.x+=(8+12*clamp(na,0.3,2.0))*dt;if(d.x>1305)d.x=1097;d.el.setAttribute('cx',d.x);d.el.setAttribute('opacity',clamp(0.5+0.25*(na-1),0.2,1));});
   drawChart(ch1,simT);drawChart(ch2,simT);drawChart(ch3,simT);drawChart(ch4,simT);drawChart(ch5,simT);
   // Avisos deliberadamente rotulados como índices didáticos, não diagnósticos.
   if(DRUGS.ace>0.05 && bk>1.50 && !coughShown && simT>0){document.getElementById('alertCough').style.display='block';coughShown=true;}
