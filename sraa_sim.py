@@ -474,7 +474,7 @@ def simulate(drop=0.20, t_end=60.0, is_chronic=False, drugs=None, params=None):
 # =====================================================================
 # 2. INTERFACE STREAMLIT
 # =====================================================================
-st.title("🫘🫘 imulador didático do SRAA")
+st.title("Simulador didático do SRAA")
 st.caption(
     "Modelo qualitativo de hemodinâmica, cascata hormonal, feedback e efeitos farmacológicos. "
     "Não se destina a diagnóstico ou decisão terapêutica."
@@ -793,10 +793,10 @@ svg{display:block;width:100%;height:auto;}
 .sub{font-size:12px;fill:#7a8ba3;text-anchor:middle;}
 .val{font-size:13px;font-weight:700;text-anchor:middle;font-variant-numeric:tabular-nums;}
 .flow{fill:none;stroke-width:4;stroke-linecap:round;stroke-dasharray:9 11;}
-.charts{display:flex;gap:10px;margin-top:10px;flex-wrap:wrap;}
-.card{flex:1;min-width:280px;background:#fbfcfe;border:1px solid var(--line);border-radius:12px;padding:6px 8px 4px;}
-.card h4{margin:0 0 3px 4px;font-size:12px;letter-spacing:.04em;text-transform:uppercase;color:var(--muted);}
-.card .hint{font-size:11px;color:#9aabc2;margin:0 0 1px 4px;}
+.charts{display:flex;flex-direction:column;gap:16px;margin-top:16px;width:100%;}
+.card{flex:none;width:100%;min-width:0;background:#fbfcfe;border:1px solid var(--line);border-radius:14px;padding:12px 14px 10px;}
+.card h4{margin:0 0 5px 4px;font-size:16px;letter-spacing:.025em;text-transform:uppercase;color:var(--muted);}
+.card .hint{font-size:14px;color:#71839d;margin:0 0 5px 4px;line-height:1.4;}
 canvas{display:block;width:100%;height:auto;}
 .bar{display:flex;align-items:center;gap:10px;margin-top:8px;flex-wrap:wrap;}
 button{border:1px solid #cbd5e1;background:#fff;color:#172554;font-weight:650;font-size:14px;padding:7px 14px;border-radius:9px;cursor:pointer;}
@@ -881,14 +881,12 @@ button.pri:hover{background:#185a95;}
   </div>
   <div class="comparison-hint" id="comparisonHint"></div>
 </div>
-<div class="charts">
-  <div class="card"><h4>PAM e TFG estimada</h4><div class="hint">Eixo esquerdo: mmHg · eixo direito: mL/min/1,73 m²</div><canvas id="c1" width="600" height="260"></canvas></div>
-  <div class="card"><h4>Cascata hormonal</h4><div class="hint">Índices relativos (referência sem fármacos = 1)</div><canvas id="c2" width="600" height="260"></canvas></div>
-</div>
-<div class="charts">
-  <div class="card"><h4>Sinalização dos receptores</h4><div class="hint">Atividade efetiva relativa (referência sem fármacos = 1)</div><canvas id="c3" width="600" height="260"></canvas></div>
-  <div class="card"><h4>Aldosterona, volume e bradicinina</h4><div class="hint">Eixo esquerdo: aldosterona/volume · eixo direito: bradicinina (índices relativos)</div><canvas id="c4" width="600" height="260"></canvas></div>
-  <div class="card"><h4>Sódio corporal e K⁺ plasmático</h4><div class="hint">Referência sem fármacos = 1; não são concentrações clínicas</div><canvas id="c5" width="600" height="260"></canvas></div>
+<div class="charts" aria-label="Gráficos do simulador">
+  <div class="card"><h4>PAM e TFG estimada</h4><div class="hint">Eixo esquerdo: mmHg · eixo direito: mL/min/1,73 m²</div><canvas id="c1" width="1200" height="440"></canvas></div>
+  <div class="card"><h4>Cascata hormonal</h4><div class="hint">Índices relativos (referência sem fármacos = 1)</div><canvas id="c2" width="1200" height="440"></canvas></div>
+  <div class="card"><h4>Sinalização dos receptores</h4><div class="hint">Atividade efetiva relativa (referência sem fármacos = 1)</div><canvas id="c3" width="1200" height="440"></canvas></div>
+  <div class="card"><h4>Aldosterona, volume e bradicinina</h4><div class="hint">Eixo esquerdo: aldosterona/volume · eixo direito: bradicinina (índices relativos)</div><canvas id="c4" width="1200" height="440"></canvas></div>
+  <div class="card"><h4>Sódio corporal e K⁺ plasmático</h4><div class="hint">Referência sem fármacos = 1; não são concentrações clínicas</div><canvas id="c5" width="1200" height="440"></canvas></div>
 </div>
 <div class="bar">
   <button id="btnPlay" class="pri">⏸ Pausar</button><button id="btnReset">↺ Reiniciar</button>
@@ -948,7 +946,7 @@ function getRange(series){
   return [mn,mx];
 }
 function setPath(ctx,times,arr,px,py,color,dashed){
-  ctx.strokeStyle=color;ctx.lineWidth=2.2;ctx.setLineDash(dashed?[6,4]:[]);ctx.beginPath();
+  ctx.strokeStyle=color;ctx.lineWidth=3.0;ctx.setLineDash(dashed?[8,5]:[]);ctx.beginPath();
   for(let i=0;i<times.length;i++){
     const x=px(times[i]),y=py(arr[i]);
     if(i===0)ctx.moveTo(x,y);else ctx.lineTo(x,y);
@@ -957,7 +955,7 @@ function setPath(ctx,times,arr,px,py,color,dashed){
 }
 function makeChart(cv,config){
   const ctx=cv.getContext('2d'), W=cv.width, H=cv.height;
-  const L=52, R=config.hasRightAxis?52:12, Tp=28, B=32;
+  const L=72, R=config.hasRightAxis?72:24, Tp=38, B=44;
   const leftSeries=config.series.filter(s=>s.axis!=='right');
   const rightSeries=config.series.filter(s=>s.axis==='right');
   const [y1min,y1max]=getRange(leftSeries);
@@ -968,7 +966,7 @@ function makeChart(cv,config){
   const pyRight=v=>Tp+(1-(v-y2min)/(y2max-y2min))*(H-Tp-B);
   const off=document.createElement('canvas'); off.width=W;off.height=H;
   const o=off.getContext('2d');o.fillStyle='#fbfcfe';o.fillRect(0,0,W,H);
-  o.font='12px -apple-system,Segoe UI,Roboto,sans-serif';
+  o.font='15px -apple-system,Segoe UI,Roboto,sans-serif';
   for(let i=0;i<=4;i++){
     const f=i/4,v=y1min+(y1max-y1min)*f,y=pyLeft(v);
     o.strokeStyle='#eef2f8';o.lineWidth=1;o.beginPath();o.moveTo(L,y);o.lineTo(W-R,y);o.stroke();
@@ -994,13 +992,13 @@ function makeChart(cv,config){
     if(IS_COMPARE && s.dataB)setPath(o,T,s.dataB,px,py,s.color,true);
   });
   if(config.legend){
-    o.font='11px -apple-system,Segoe UI,Roboto,sans-serif';o.textAlign='left';o.textBaseline='middle';
+    o.font='14px -apple-system,Segoe UI,Roboto,sans-serif';o.textAlign='left';o.textBaseline='middle';
     let lx=L+4, ly=12;
     config.series.forEach(s=>{
       const width=15+o.measureText(s.name).width+10;
-      if(lx+width>W-R){lx=L+4;ly+=13;}
-      o.setLineDash([]);o.strokeStyle=s.color;o.lineWidth=2.5;o.beginPath();o.moveTo(lx,ly);o.lineTo(lx+12,ly);o.stroke();
-      o.fillStyle='#5a6b85';o.fillText(s.name,lx+16,ly+2);lx+=width;
+      if(lx+width>W-R){lx=L+4;ly+=18;}
+      o.setLineDash([]);o.strokeStyle=s.color;o.lineWidth=3;o.beginPath();o.moveTo(lx,ly);o.lineTo(lx+15,ly);o.stroke();
+      o.fillStyle='#5a6b85';o.fillText(s.name,lx+19,ly+2);lx+=width;
     });
   }
   return {ctx,off,px,pyLeft,pyRight,W,H,L,R,Tp,B,config};
@@ -1026,7 +1024,7 @@ function drawMarker(ctx,x,y,color,hollow){
 }
 function drawChart(ch,t){
   const c=ch.ctx;c.clearRect(0,0,ch.W,ch.H);c.drawImage(ch.off,0,0);
-  const x=ch.px(t);c.strokeStyle='#22344f';c.lineWidth=1.2;c.beginPath();c.moveTo(x,ch.Tp);c.lineTo(x,ch.H-ch.B);c.stroke();
+  const x=ch.px(t);c.strokeStyle='#22344f';c.lineWidth=1.6;c.beginPath();c.moveTo(x,ch.Tp);c.lineTo(x,ch.H-ch.B);c.stroke();
   ch.config.series.forEach(s=>{
     const py=s.axis==='right'?ch.pyRight:ch.pyLeft;
     drawMarker(c,x,py(sample(s.data,t)),s.color,false);
@@ -1337,7 +1335,7 @@ html = TEMPLATE.replace("__DATA__", payload)
 cell_html = CELL_TEMPLATE.replace("__CELL_DATA__", cell_payload)
 model_tab, aldosterone_tab = st.tabs(["📈 SRAA e comparação de regimes", "🧫 Efeitos celulares da aldosterona"])
 with model_tab:
-    st.iframe(html, width="stretch", height=1550 if compare_enabled else 1470, alt="Diagrama e gráficos animados do simulador didático do SRAA")
+    st.iframe(html, width="stretch", height=3750 if compare_enabled else 3650, alt="Diagrama e gráficos animados do simulador didático do SRAA")
 with aldosterone_tab:
     st.markdown(
         "A animação abaixo reutiliza as séries de **aldosterona (Ald)** e **potássio (K⁺)** do regime selecionado. "
